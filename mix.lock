@@ -1,0 +1,7 @@
+%{"cowboy": {:hex, :cowboy, "1.0.2"},
+  "cowlib": {:hex, :cowlib, "1.0.1"},
+  "phoenix": {:git, "git://github.com/phoenixframework/phoenix.git", "3fc98f8b18095b6d155f5afd824f7c5e24447187", []},
+  "plug": {:hex, :plug, "0.13.0"},
+  "poison": {:hex, :poison, "1.4.0"},
+  "ranch": {:hex, :ranch, "1.1.0"},
+  "websocket_client": {:git, "git://github.com/jeremyong/websocket_client.git", "f6892c8b55004008ce2d52be7d98b156f3e34569", []}}
