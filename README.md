@@ -28,17 +28,14 @@ config :my_app, Socket,
 Add socket handler
 ```elixir
 defmodule MyApp.Socket do
-  use Phoenix.Channel.Client.Socket, opt_app: my_app
+  use Phoenix.Channel.Client.Socket, opt_app: :my_app
 
 end
 ```
 
 You can either start the socket by adding it to the application supervisor...
 ```elixir
-defmodule MyApp.Socket do
-  use Phoenix.Channel.Client.Socket, opt_app: my_app
-
-end
+worker(MyApp.Socket, [])
 ```
 
 or by calling it directly
@@ -52,15 +49,15 @@ defmodule MyApp.Channel do
   use Phoenix.Channel.Client.Channel
 
   # Phoenix Handlers
-  on_event "new_message"}, %{} = payload do
+  on_event "new_message", %{} = payload do
     # The channel received an event message
   end
 
-  on_receive "ok", %Push{} = push}, %{} = payload do
+  on_receive "ok", %Push{} = push, %{} = payload do
     # The push received a response
   end
 
-  on_timeout %Push{} = push}, %{} = payload do
+  on_timeout %Push{} = push, %{} = payload do
     # The push timeout was called
   end
 
@@ -76,6 +73,6 @@ end
 
 You can then make calls to join channels and push messages. With this setup, callbacks to events / pushes will appear at the channel module.
 ```elixir
-MyApp.Channel.join("my:topic", %{foo: :bar}, socket: MyApp.Socket)
-MyApp.Channel.push("new:message", %{param: 1})
+MyApp.Channel.join("my:topic", %{foo: :bar}, socket: MyApp.Socket, timeout: 5000)
+MyApp.Channel.push("new:message", %{param: 1}, timeout: 5000)
 ```
