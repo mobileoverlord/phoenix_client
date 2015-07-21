@@ -18,22 +18,64 @@ def deps do
 end
 ```
 
+Configure the socket
 ```elixir
-alias Phoenix.Channel.Client
+config :my_app, Socket,
+  url: ws://127.0.0.1:4000/connect
 
-{:ok, client} = Client.start_link
-{:ok, _socket} = Client.connect client, "ws://127.0.0.1:4000/connect"
-{:ok, channel} = Client.channel client, "device:lobby"
+```
 
-Client.Channel.on(channel, "new_msg", fn(payload) ->
-  # Do Something
-end)
+Add socket handler
+```elixir
+defmodule MyApp.Socket do
+  use Phoenix.Channel.Client.Socket, opt_app: my_app
 
-Client.Channel.join(channel, %{foo: :bar})
-  |> on_receive("ok", fn() -> IO.puts("Ok") end)
-  |> on_after(5000, fn() -> IO.puts("After") end)
+end
+```
 
+You can either start the socket by adding it to the application supervisor...
+```elixir
+defmodule MyApp.Socket do
+  use Phoenix.Channel.Client.Socket, opt_app: my_app
 
-Client.Channel.push(channel, "new:message", %{param: 1})
+end
+```
 
+or by calling it directly
+```elixir
+  MyApp.Socket.start_link()
+```
+
+Add a channel handler and use the socket in the channel config
+```elixir
+defmodule MyApp.Channel do
+  use Phoenix.Channel.Client.Channel
+
+  # Phoenix Handlers
+  on_event "new_message"}, %{} = payload do
+    # The channel received an event message
+  end
+
+  on_receive "ok", %Push{} = push}, %{} = payload do
+    # The push received a response
+  end
+
+  on_timeout %Push{} = push}, %{} = payload do
+    # The push timeout was called
+  end
+
+  on_close do
+    # Channel communication closed
+  end
+
+  on_error reason do
+    # Channel communication error
+  end
+end
+```
+
+You can then make calls to join channels and push messages. With this setup, callbacks to events / pushes will appear at the channel module.
+```elixir
+MyApp.Channel.join("my:topic", %{foo: :bar}, socket: MyApp.Socket)
+MyApp.Channel.push("new:message", %{param: 1})
 ```
