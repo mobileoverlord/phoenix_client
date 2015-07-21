@@ -49,23 +49,24 @@ defmodule MyApp.Channel do
   use Phoenix.Channel.Client.Channel
 
   # Phoenix Handlers
-  on_event "new_message", %{} = payload do
+
+  def phoenix_handle({:event, "new_message"}, payload, state) do
     # The channel received an event message
   end
 
-  on_receive "ok", %Push{} = push, %{} = payload do
+  def phoenix_handle({:receive, "ok", %Push{}}, payload, state) do
     # The push received a response
   end
 
-  on_timeout %Push{} = push, %{} = payload do
+  def phoenix_handle({:timeout, milliseconds, %Push{}}, payload, state) do
     # The push timeout was called
   end
 
-  on_close do
+  def phoenix_handle({:close}, payload, state) do
     # Channel communication closed
   end
 
-  on_error reason do
+  def phoenix_handle({:error}, payload, state) do
     # Channel communication error
   end
 end
