@@ -1,5 +1,11 @@
 # Phoenix.Channel.Client
 
+Work In Progress!
+- [ ] client, channel and push API
+- [ ] socket reconnects
+- [ ] message buffering
+- [ ] test suite
+
 Channel client for connecting to Phoenix
 
 ## Usage
