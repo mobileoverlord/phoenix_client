@@ -1,3 +1,5 @@
+Logger.configure(level: :debug)
+
 # Starts web server applications
 Application.ensure_all_started(:cowboy)
 Application.ensure_all_started(:phoenix)

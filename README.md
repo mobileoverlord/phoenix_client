@@ -28,8 +28,9 @@ config :my_app, Socket,
 Add socket handler
 ```elixir
 defmodule MyApp.Socket do
-  use Phoenix.Channel.Client.Socket, opt_app: :my_app
+  use Phoenix.Channel.Client.Socket, otp_app: :my_app
 
+  channel "rooms:lobby", MyApp.Channel
 end
 ```
 
@@ -40,7 +41,7 @@ worker(MyApp.Socket, [])
 
 or by calling it directly
 ```elixir
-  MyApp.Socket.start_link()
+  MyApp.Socket.start_link(url: "ws://127.0.0.1:4000/socket)
 ```
 
 Add a channel handler and use the socket in the channel config
