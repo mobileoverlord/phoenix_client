@@ -17,6 +17,8 @@ def deps do
   [{:phoenix_channel_client, "~> 0.0.1"} ]
 end
 ```
+Example usage
+```elixir
 alias Phoenix.Channel.Client
 {:ok, client} = Client.start_link
 {:ok, socket} = Client.connect client, %{user_id: token}
@@ -28,4 +30,4 @@ Client.channel(socket, "rooms:lobby", %{})
   |> Push.on_timeout(1000, self)
 
 Client.push(channel, "new:message", %{})
-
+```
