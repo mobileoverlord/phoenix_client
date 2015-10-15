@@ -1,4 +1,5 @@
 defmodule Phoenix.Channel.Client.Push do
+  alias Phoenix.Channel.Client.Channel
   defstruct [
     channel: nil,
     event: "",
@@ -9,12 +10,8 @@ defmodule Phoenix.Channel.Client.Push do
     after_hook: nil
   ]
 
-  # def on_receive(%__MODULE__{rec_hooks: rec_hooks} = push, event, func) do
-  #   put_in(push.rec_hooks, [{event, func} | rec_hooks])
-  # end
-
-  # def on_after(%__MODULE__{rec_hooks: rec_hooks} = push, ms, func) do
-
-  # end
+  def on_receive(%__MODULE__{rec_hooks: rec_hooks} = push, event, func) do
+    Channel.put(put_in(push.rec_hooks, [{event, func} | rec_hooks]))
+  end
 
 end

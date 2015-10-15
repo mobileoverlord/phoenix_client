@@ -17,64 +17,15 @@ def deps do
   [{:phoenix_channel_client, "~> 0.0.1"} ]
 end
 ```
+alias Phoenix.Channel.Client
+{:ok, client} = Client.start_link
+{:ok, socket} = Client.connect client, %{user_id: token}
 
-Configure the socket
-```elixir
-config :my_app, Socket,
-  url: ws://127.0.0.1:4000/connect
+Client.channel(socket, "rooms:lobby", %{})
+  |> Client.Channel.on_event("new:message", self)
+  |> Client.Channel.join
+  |> Push.on_receive("ok", self)
+  |> Push.on_timeout(1000, self)
 
-```
+Client.push(channel, "new:message", %{})
 
-Add socket handler
-```elixir
-defmodule MyApp.Socket do
-  use Phoenix.Channel.Client.Socket, otp_app: :my_app
-
-  channel "rooms:lobby", MyApp.Channel
-end
-```
-
-You can either start the socket by adding it to the application supervisor...
-```elixir
-worker(MyApp.Socket, [])
-```
-
-or by calling it directly
-```elixir
-  MyApp.Socket.start_link(url: "ws://127.0.0.1:4000/socket)
-```
-
-Add a channel handler and use the socket in the channel config
-```elixir
-defmodule MyApp.Channel do
-  use Phoenix.Channel.Client.Channel
-
-  # Phoenix Handlers
-
-  def phoenix_handle({:event, "new_message"}, payload, state) do
-    # The channel received an event message
-  end
-
-  def phoenix_handle({:receive, "ok", %Push{}}, payload, state) do
-    # The push received a response
-  end
-
-  def phoenix_handle({:timeout, milliseconds, %Push{}}, payload, state) do
-    # The push timeout was called
-  end
-
-  def phoenix_handle({:close}, payload, state) do
-    # Channel communication closed
-  end
-
-  def phoenix_handle({:error}, payload, state) do
-    # Channel communication error
-  end
-end
-```
-
-You can then make calls to join channels and push messages. With this setup, callbacks to events / pushes will appear at the channel module.
-```elixir
-MyApp.Channel.join("my:topic", %{foo: :bar}, socket: MyApp.Socket, timeout: 5000)
-MyApp.Channel.push("new:message", %{param: 1}, timeout: 5000)
-```

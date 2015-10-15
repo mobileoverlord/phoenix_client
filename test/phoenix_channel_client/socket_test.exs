@@ -4,6 +4,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   import Plug.Conn, except: [assign: 3]
 
+  alias Phoenix.Channel.Client
   alias Phoenix.Channel.Client.Socket
   alias Phoenix.Socket.Message
   alias Phoenix.Socket.Broadcast
@@ -104,18 +105,6 @@ defmodule Phoenix.Channel.Client.SocketTest do
     plug Router
   end
 
-  defmodule ClientChannel do
-    use Phoenix.Channel.Client.Channel
-  end
-
-  defmodule ClientSocket do
-    use Phoenix.Channel.Client.Socket
-
-    channel "rooms:lobby", ClientChannel
-  end
-
-
-
   setup_all do
     capture_log fn -> Endpoint.start_link() end
     :ok
@@ -124,8 +113,18 @@ defmodule Phoenix.Channel.Client.SocketTest do
   require Logger
 
   test "socket can connect to endpoint" do
-    ret = ClientSocket.start_link(url: "ws://127.0.0.1:#{@port}/ws/admin/websocket")
-    Logger.debug "Result #{inspect ret}"
+    {:ok, client} = Client.start_link()
+    {:ok, socket} = Client.connect(client, "ws://127.0.0.1:#{@port}/ws/admin/websocket")
+
+    Client.channel(socket, "rooms:admin-lobby", %{})
+      |> Client.Channel.on("joined", self)
+      |> Client.Channel.join
+      |> Client.Push.on_receive("ok", self)
+
+      #|> Client.on_receive("ok", self)
+    assert_receive %{payload: %{"status" => "ok"}, topic: "rooms:admin-lobby", event: "phx_reply", ref: _}
+    # Client.push("room:lobby", "phx_join", %{})
+
   end
 
   # test "endpoint handles mulitple mount segments" do
