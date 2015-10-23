@@ -24,10 +24,10 @@ alias Phoenix.Channel.Client
 {:ok, socket} = Client.connect client, %{user_id: token}
 
 Client.channel(socket, "rooms:lobby", %{})
-  |> Client.Channel.on_event("new:message", self)
-  |> Client.Channel.join
-  |> Push.on_receive("ok", self)
-  |> Push.on_timeout(1000, self)
+|> Client.Channel.on_event("new:message", self)
+|> Client.Channel.join
+|> Push.on_receive("ok", self)
+|> Push.on_receive("timeout", self)
 
 Client.push(channel, "new:message", %{})
 ```

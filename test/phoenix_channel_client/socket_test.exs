@@ -117,9 +117,9 @@ defmodule Phoenix.Channel.Client.SocketTest do
     {:ok, socket} = Client.connect(client, "ws://127.0.0.1:#{@port}/ws/admin/websocket")
 
     Client.channel(socket, "rooms:admin-lobby", %{})
-      |> Client.Channel.on("joined", self)
-      |> Client.Channel.join
-      |> Client.Push.on_receive("ok", self)
+    |> Client.Channel.on("joined", self)
+    |> Client.Channel.join
+    |> Client.Push.on_receive("ok", self)
 
       #|> Client.on_receive("ok", self)
     assert_receive %{payload: %{"status" => "ok"}, topic: "rooms:admin-lobby", event: "phx_reply", ref: _}

@@ -9,6 +9,8 @@ defmodule Phoenix.Channel.Client.Channel do
   require Logger
 
   @timeout 5000
+  @push_timeout 30_000
+  @event_reply :phx_reply
 
   def start_link(opts) do
     case GenServer.start_link(__MODULE__, opts) do
@@ -29,13 +31,17 @@ defmodule Phoenix.Channel.Client.Channel do
   end
 
 
-  def put(%Push{channel: pid} = push) do
-    GenServer.call(pid, {:put, push})
-  end
+  # def put(%Push{channel: pid} = push) do
+  #   GenServer.call(pid, {:put, push})
+  # end
 
   def on(pid, event, mod) do
     Logger.debug "Pid: #{inspect pid}"
     GenServer.call(pid, {:on_event, event, mod})
+  end
+
+  def push(pid, event, payload) do
+    GenServer.call(pid, {:push, event, payload})
   end
 
   # def on(%Push{channel: pid} = push, event, func) do
@@ -64,7 +70,7 @@ defmodule Phoenix.Channel.Client.Channel do
   # TODO: Need to pass mod to Push and store for result.
   def handle_call({:join, _mod, params}, _from, %{socket: socket} = s) do
     Logger.debug "Channel Join: #{inspect s.topic}, #{inspect params}"
-    push = %Push{channel: self, event: "phx_join", payload: params}
+    push = Push.start_link(channel: self, event: "phx_join")
     Socket.push(socket.pid, s.topic, push)
     {:reply, push, %{s | join_push: push}}
   end
@@ -79,11 +85,15 @@ defmodule Phoenix.Channel.Client.Channel do
     {:reply, self, %{s | bindings: [{event, mod} | bindings]}}
   end
 
-  def handle_call({:put, %Push{} = push}, _from, %{pushes: pushes} = s) do
-    Logger.debug "Put Push"
-    pushes = pushes
-      |> Enum.reject(&(&1 == push))
-    {:reply, push, %{s | pushes: [push | pushes]}}
+  # def handle_call({:put, %Push{} = push}, _from, %{pushes: pushes} = s) do
+  #   Logger.debug "Put Push"
+  #   pushes = pushes
+  #     |> Enum.reject(&(&1 == push))
+  #   {:reply, push, %{s | pushes: [push | pushes]}}
+  # end
+
+  def handle_call({:push, event, payload}, _from, s) do
+
   end
 
   def handle_call({:after, %Push{} = push, event, func}, _from, %{pushes: pushes} = s) do
@@ -93,11 +103,22 @@ defmodule Phoenix.Channel.Client.Channel do
     {:reply, push, %{s | pushes: [push | pushes]}}
   end
 
-  def handle_cast({:trigger, event, payload, ref}, %{bindings: bindings, topic: topic} = s) do
-    Logger.debug "Channel Trigger"
-    Enum.filter(bindings, fn({event, _mod}) -> event == event end)
-      |> Enum.each(fn({event, mod}) -> send(mod, %{payload: payload, event: event, topic: topic, ref: ref}) end)
+  def handle_cast({:trigger, @event_reply, payload, ref}, s) do
+    Logger.debug "Trigger Reply"
+    trigger_event(@event_reply, payload, reply_event_name(ref), s)
     {:noreply, s}
   end
 
+  def handle_cast({:trigger, event, payload, ref}, s) do
+    trigger_event(event, payload, ref, s)
+    {:noreply, s}
+  end
+
+  defp trigger_event(event, payload, ref, %{bindings: bindings, topic: topic}) do
+    Logger.debug "Trigger Event"
+    Enum.filter(bindings, fn({event, _mod}) -> event == event end)
+      |> Enum.each(fn({event, mod}) -> send(mod, %{payload: payload, event: event, topic: topic, ref: ref}) end)
+  end
+
+  defp reply_event_name(ref), do: "chan_reply_#{ref}"
 end
