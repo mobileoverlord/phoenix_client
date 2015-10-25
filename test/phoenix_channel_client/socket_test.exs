@@ -9,6 +9,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
   alias Phoenix.Socket.Message
   alias Phoenix.Socket.Broadcast
   alias __MODULE__.Endpoint
+  alias __MODULE__.ClientSocket
 
   @port 5807
 
@@ -22,7 +23,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
   ])
 
   Application.put_env(:channel_client, ClientSocket, [
-    host: "ws://127.0.0.1:#{@port}/ws/admin/websocket"
+    url: "ws://127.0.0.1:#{@port}/ws/admin/websocket"
   ])
 
   defmodule RoomChannel do
@@ -127,7 +128,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
   test "socket can connect to endpoint" do
     {:ok, _} = ClientSocket.start_link()
     {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby")
-
+    ClientChannel.join(channel)
     # {:ok, client} = Client.start_link()
     # {:ok, socket} = Client.connect(client, "ws://127.0.0.1:#{@port}/ws/admin/websocket")
     #
@@ -137,7 +138,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
     # |> Client.Push.on_receive("ok", self)
 
       #|> Client.on_receive("ok", self)
-    # assert_receive %{payload: %{"status" => "ok"}, topic: "rooms:admin-lobby", event: "phx_reply", ref: _}
+    assert_receive %{payload: %{"status" => "ok"}, topic: "rooms:admin-lobby", event: "phx_reply", ref: _}, 5000
     # Client.push("room:lobby", "phx_join", %{})
 
   end

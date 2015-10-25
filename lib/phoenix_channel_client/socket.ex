@@ -2,6 +2,7 @@ defmodule Phoenix.Channel.Client.Socket do
 
   defmacro __using__(opts) do
     quote do
+      require Logger
       unquote(config(opts))
       unquote(socket())
     end
@@ -17,7 +18,7 @@ defmodule Phoenix.Channel.Client.Socket do
   defp socket do
     quote unquote: false do
       use GenServer
-      require Logger
+      #require Logger
 
       alias Poison, as: JSON
       #alias Phoenix.Channel.Client.Push
@@ -26,7 +27,16 @@ defmodule Phoenix.Channel.Client.Socket do
         GenServer.start_link(__MODULE__, unquote(var!(config)), name: __MODULE__)
       end
 
+      def push(pid, topic, event, payload) do
+        GenServer.call(pid, {:push, topic, event, payload})
+      end
+
+      def channel_link(pid, channel, topic) do
+        GenServer.call(pid, {:channel_link, channel, topic})
+      end
+
       def init(opts) do
+        send(self, :connect)
         {:ok, %{
           opts: opts,
           socket: nil,
@@ -42,13 +52,40 @@ defmodule Phoenix.Channel.Client.Socket do
         }}
       end
 
-      def handle_info({:connect}, _from, %{opts: opts} = state) do
+      def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
+        Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+        send(socket, {:send, %{topic: topic, event: event, payload: payload}})
+        {:noreply, state}
+      end
+
+      def handle_call({:channel_link, channel, topic}, _from, state) do
+        {:reply, channel, %{state | channels: [{channel, topic} | state.channels]}}
+      end
+
+      def handle_info(:connect, %{opts: opts} = state) do
         headers = opts[:headers] || []
         :crypto.start
         :ssl.start
-        {:ok, pid} = :websocket_client.start_link(String.to_char_list(opts[:url]), Phoenix.Channel.Client.Socket, opts,
+        opts = Keyword.put(opts, :sender, self)
+        {:ok, pid} = :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts,
                                  extra_headers: headers)
-        {:noreply, state}
+        Logger.debug "[socket] pid: #{inspect pid}"
+        {:noreply, %{state | socket: pid}}
+      end
+
+      # New Messages from the socket come in here
+      def handle_info(%{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg, %{channels: channels} = s) do
+        Logger.debug "Channels: #{inspect channels}"
+        Enum.filter(channels, fn({channel, channel_topic}) ->
+          Logger.debug "Chan: #{inspect channel_topic}"
+          Logger.debug "Topic: #{inspect topic}"
+          topic == channel_topic
+        end)
+        |> Enum.each(fn({channel, _}) ->
+          Logger.debug "Trigger"
+          send(channel, {:trigger, event, payload, ref})
+        end)
+        {:noreply, s}
       end
 
       @doc """

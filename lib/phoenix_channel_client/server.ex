@@ -17,12 +17,38 @@ defmodule Phoenix.Channel.Client.Server do
         GenServer.start_link(__MODULE__, opts)
       end
 
+      def join(pid, params \\ %{}) do
+        GenServer.cast(pid, {:join, params})
+      end
+
       def init(opts) do
+        # TODO
+        #  Register the channel with the socket
+        Logger.debug "Channel PID: #{inspect self}"
+        socket = opts[:socket]
+        topic = opts[:topic]
+        socket.channel_link(socket, self, topic)
         {:ok, %{
-          socket: opts[:socket],
-          topic: opts[:topic]
+          socket: socket,
+          topic: topic,
+          pushes: []
         }}
       end
+
+      def handle_cast({:join, params}, %{socket: socket} = state) do
+        socket.push(socket, state.topic, "phx_join", %{})
+        {:noreply, state}
+      end
+
+      # def handle_info({:trigger, "phx_reply", payload, ref}, state) do
+      #   Logger.debug "Handle Reply: #{inspect ref}"
+      #   {:noreply, state}
+      # end
+      #
+      # def handle_info({:trigger, event, payload, ref}, state) do
+      #   Logger.debug "Handle In: #{inspect event}"
+      #   {:noreply, state}
+      # end
 
     end
   end
