@@ -17,17 +17,55 @@ def deps do
   [{:phoenix_channel_client, "~> 0.0.1"} ]
 end
 ```
+
 Example usage
+## Socket
+Using the Phoenix Channel Client requires you add a Socket module to your supervision tree for handling the socket connection.
 ```elixir
-alias Phoenix.Channel.Client
-{:ok, client} = Client.start_link
-{:ok, socket} = Client.connect client, %{user_id: token}
+defmodule MySocket do
+  use Phoenix.Channel.Client.Socket, otp_app: :my_app
+end
+```
 
-Client.channel(socket, "rooms:lobby", %{})
-|> Client.Channel.on_event("new:message", self)
-|> Client.Channel.join
-|> Push.on_receive("ok", self)
-|> Push.on_receive("timeout", self)
+```elixir
+config :my_app, MySocket,
+  url: "ws://localhost:4000/socket/websocket"
+```
 
-Client.push(channel, "new:message", %{})
+Channels function with callbacks inside a module
+```elixir
+defmodule MyChannel do
+  use Phoenix.Channel.Client.Server
+
+  def handle_in("new_msg", payload, state) do
+    {:noreply, state}
+  end  
+
+  def handle_reply({:ok, :new_msg, resp, _ref}, state) do
+  end
+  def handle_reply({:error, :new_msg, resp, _ref} state) do
+  end
+  def handle_reply({:timeout, :new_msg, _ref} state) do
+  end
+
+  def handle_reply({:timeout, :join, _ref} state) do
+    {:noreply, rejoin(state)}
+  end
+
+  def handle_close({:closed, reason}, sstate) do
+    send_after(5000, :rejoin)
+    {:noreply, rejoin(state)}
+  end
+end
+```
+
+usage
+```elixir
+{:ok, socket} = MySocket.start_link
+MyChannel.start_link(socket: MySocket, topic: "rooms:lobby")
+MyChannel.join(%{})
+MyChannel.leave()
+
+push = MyChannel.push("new:message", %{})
+MyChannel.cancel_push(push)
 ```
