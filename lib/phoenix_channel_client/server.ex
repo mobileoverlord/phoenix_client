@@ -63,7 +63,7 @@ defmodule Phoenix.Channel.Client.Server do
       def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
         push = socket.push(socket, state.topic, "phx_leave", %{})
         if opts[:brutal] == true do
-          socket.channel_unlink(socket, self)
+          socket.channel_unlink(socket, self, state.topic)
           chan_state = :closed
         else
           chan_state = :closing
@@ -86,6 +86,7 @@ defmodule Phoenix.Channel.Client.Server do
       end
 
       def handle_info({:trigger, "phx_reply", reason, ref} = payload, %{state: :closing, leave_push: %{ref: leave_ref}} = state) when ref == leave_ref do
+        state.socket.channel_unlink(state.socket, self, state.topic)
         handle_close({:closed, reason}, %{state | state: :closed})
       end
 

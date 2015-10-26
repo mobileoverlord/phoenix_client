@@ -18,7 +18,7 @@ defmodule Phoenix.Channel.Client.Socket do
   defp socket do
     quote unquote: false do
       use GenServer
-      #require Logger
+      @reconnect 5000
 
       alias Poison, as: JSON
       #alias Phoenix.Channel.Client.Push
@@ -35,8 +35,8 @@ defmodule Phoenix.Channel.Client.Socket do
         GenServer.call(pid, {:channel_link, channel, topic})
       end
 
-      def channel_unlink(pid, channel) do
-        GenServer.call(pid, {:channel_unlink, channel})
+      def channel_unlink(pid, channel, topic) do
+        GenServer.call(pid, {:channel_unlink, channel, topic})
       end
 
       def init(opts) do
@@ -66,11 +66,15 @@ defmodule Phoenix.Channel.Client.Socket do
       end
 
       def handle_call({:channel_link, channel, topic}, _from, state) do
-        {:reply, channel, %{state | channels: [{channel, topic} | state.channels]}}
+        channels = state.channels
+        unless Enum.any?(channels, fn({c, t})-> c == channel and t == topic end) do
+          channels = [{channel, topic} | state.channels]
+        end
+        {:reply, channel, %{state | channels: channels}}
       end
 
-      def handle_call({:channel_unlink, channel}, _from, state) do
-        channels = Enum.reject(state.channels, fn({c, _}) -> c == channel end)
+      def handle_call({:channel_unlink, channel, topic}, _from, state) do
+        channels = Enum.reject(state.channels, fn({c, t}) -> c == channel and t == topic end)
         {:reply, channel, %{state | channels: channels}}
       end
 
@@ -79,9 +83,13 @@ defmodule Phoenix.Channel.Client.Socket do
         :crypto.start
         :ssl.start
         opts = Keyword.put(opts, :sender, self)
-        {:ok, pid} = :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts,
-                                 extra_headers: headers)
-        {:noreply, %{state | socket: pid}}
+        case :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts, extra_headers: headers) do
+          {:ok, pid} ->
+            state = %{state | socket: pid, state: :connected}
+          _ ->
+            :erlang.send_after(@reconnect, self, :connect)
+        end
+        {:noreply, state}
       end
 
       # New Messages from the socket come in here
