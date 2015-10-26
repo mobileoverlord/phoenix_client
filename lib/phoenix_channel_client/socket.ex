@@ -54,8 +54,9 @@ defmodule Phoenix.Channel.Client.Socket do
 
       def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
         #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-        ref = to_string(state.ref + 1)
-        push = %{topic: topic, event: event, payload: payload, ref: ref}
+        Logger.debug "Socket State: #{inspect state}"
+        ref = state.ref + 1
+        push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
         send(socket, {:send, push})
         {:reply, push, %{state | ref: ref}}
       end
