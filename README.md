@@ -1,10 +1,9 @@
 # Phoenix.Channel.Client
 
 Work In Progress!
-- [ ] client, channel and push API
+- [x] client, channel and push API
 - [ ] socket reconnects
 - [ ] message buffering
-- [ ] test suite
 
 Channel client for connecting to Phoenix
 
@@ -41,18 +40,21 @@ defmodule MyChannel do
     {:noreply, state}
   end  
 
-  def handle_reply({:ok, :new_msg, resp, _ref}, state) do
+  def handle_reply({:ok, "new_msg", resp, _ref}, state) do
+    {:noreply, state}
   end
-  def handle_reply({:error, :new_msg, resp, _ref} state) do
+  def handle_reply({:error, "new_msg", resp, _ref} state) do
+    {:noreply, state}
   end
-  def handle_reply({:timeout, :new_msg, _ref} state) do
+  def handle_reply({:timeout, "new_msg", _ref} state) do
+    {:noreply, state}
   end
 
   def handle_reply({:timeout, :join, _ref} state) do
-    {:noreply, rejoin(state)}
+    {:noreply, state}
   end
 
-  def handle_close({:closed, reason}, sstate) do
+  def handle_close(reason, state) do
     send_after(5000, :rejoin)
     {:noreply, rejoin(state)}
   end
