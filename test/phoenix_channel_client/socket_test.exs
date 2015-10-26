@@ -160,6 +160,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
     assert_receive {:ok, :join, _, ^ref}
     ClientChannel.leave(channel)
     assert_receive {"you:left", %{"message" => "bye!"}}
+    assert_receive {:closed, _}
   end
 
   test "client can push to a channel", context do
