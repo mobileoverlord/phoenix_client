@@ -41,21 +41,23 @@ defmodule Phoenix.Channel.Client.Socket do
           opts: opts,
           socket: nil,
           channels: [],
-          state: :disconnected
+          state: :disconnected,
+          ref: 0
         }}
       end
 
       def init(opts, _conn_state) do
         {:ok, %{
-          sender: opts[:sender],
-          ref: 0
+          sender: opts[:sender]
         }}
       end
 
       def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-        Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-        send(socket, {:send, %{topic: topic, event: event, payload: payload}})
-        {:noreply, state}
+        #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+        ref = to_string(state.ref + 1)
+        push = %{topic: topic, event: event, payload: payload, ref: ref}
+        send(socket, {:send, push})
+        {:reply, push, %{state | ref: ref}}
       end
 
       def handle_call({:channel_link, channel, topic}, _from, state) do
@@ -69,20 +71,15 @@ defmodule Phoenix.Channel.Client.Socket do
         opts = Keyword.put(opts, :sender, self)
         {:ok, pid} = :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts,
                                  extra_headers: headers)
-        Logger.debug "[socket] pid: #{inspect pid}"
         {:noreply, %{state | socket: pid}}
       end
 
       # New Messages from the socket come in here
       def handle_info(%{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg, %{channels: channels} = s) do
-        Logger.debug "Channels: #{inspect channels}"
         Enum.filter(channels, fn({channel, channel_topic}) ->
-          Logger.debug "Chan: #{inspect channel_topic}"
-          Logger.debug "Topic: #{inspect topic}"
           topic == channel_topic
         end)
         |> Enum.each(fn({channel, _}) ->
-          Logger.debug "Trigger"
           send(channel, {:trigger, event, payload, ref})
         end)
         {:noreply, s}
@@ -93,8 +90,6 @@ defmodule Phoenix.Channel.Client.Socket do
       forwards message to client sender process
       """
       def websocket_handle({:text, msg}, _conn_state, state) do
-        Logger.debug "Recv: #{inspect msg}"
-        Logger.debug "Sender: #{inspect state.sender}"
         send state.sender, JSON.decode!(msg)
         {:ok, state}
       end
@@ -103,9 +98,7 @@ defmodule Phoenix.Channel.Client.Socket do
       Sends JSON encoded Socket.Message to remote WS endpoint
       """
       def websocket_info({:send, msg}, _conn_state, state) do
-        msg = Map.put(msg, :ref, to_string(state.ref + 1))
-        Logger.debug "Send Message: #{inspect msg}"
-        {:reply, {:text, json!(msg)}, put_in(state, [:ref], state.ref + 1)}
+        {:reply, {:text, json!(msg)}, state}
       end
 
       def websocket_info(:close, _conn_state, _state) do

@@ -4,10 +4,6 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   import Plug.Conn, except: [assign: 3]
 
-  alias Phoenix.Channel.Client
-  alias Phoenix.Channel.Client.Socket
-  alias Phoenix.Socket.Message
-  alias Phoenix.Socket.Broadcast
   alias __MODULE__.Endpoint
   alias __MODULE__.ClientSocket
 
@@ -116,6 +112,21 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   defmodule ClientChannel do
     use Phoenix.Channel.Client.Server, socket: ClientSocket
+
+    def handle_in(event, payload, state) do
+      send(state.opts[:sender], {event, payload})
+      {:noreply, state}
+    end
+
+    def handle_reply(payload, state) do
+      send(state.opts[:sender], payload)
+      {:noreply, state}
+    end
+
+    def handle_close(payload, state) do
+      send(state.opts[:sender], {:closed, payload})
+      {:noreply, state}
+    end
   end
 
   setup_all do
@@ -125,30 +136,12 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   require Logger
 
-  test "socket can connect to endpoint" do
+  test "socket can join channel" do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby")
-    ClientChannel.join(channel)
-    # {:ok, client} = Client.start_link()
-    # {:ok, socket} = Client.connect(client, "ws://127.0.0.1:#{@port}/ws/admin/websocket")
-    #
-    # Client.channel(socket, "rooms:admin-lobby", %{})
-    # |> Client.Channel.on("joined", self)
-    # |> Client.Channel.join
-    # |> Client.Push.on_receive("ok", self)
-
-      #|> Client.on_receive("ok", self)
-    assert_receive %{payload: %{"status" => "ok"}, topic: "rooms:admin-lobby", event: "phx_reply", ref: _}, 5000
-    # Client.push("room:lobby", "phx_join", %{})
-
+    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
+    %{ref: ref} = ClientChannel.join(channel)
+    assert_receive {:ok, :join, _, ref}, 5000
   end
 
-  # test "endpoint handles mulitple mount segments" do
 
-  #   # {:ok, sock} = Socket.start_link(self, "ws://127.0.0.1:#{@port}/ws/admin/websocket")
-  #   # Socket.join(sock, "rooms:admin-lobby", %{})
-  #   # assert_receive %Message{event: "phx_reply",
-  #   #                         payload: %{"response" => %{}, "status" => "ok"},
-  #   #                         ref: "1", topic: "rooms:admin-lobby"}
-  # end
 end
