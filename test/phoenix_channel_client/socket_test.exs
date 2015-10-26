@@ -115,7 +115,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
   end
 
   defmodule ClientChannel do
-    use Phoenix.Channel.Client.Server, socket: ClientSocket
+    use Phoenix.Channel.Client.Server
 
     def handle_in(event, payload, state) do
       send(state.opts[:sender], {event, payload})

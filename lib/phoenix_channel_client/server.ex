@@ -93,6 +93,10 @@ defmodule Phoenix.Channel.Client.Server do
         handle_reply( {String.to_atom(status), :join, payload, ref}, %{state | state: :joined})
       end
 
+      def handle_info({:trigger, "phx_reply", %{"response" => response, "status" => status}, ref}, state) do
+        handle_reply({String.to_atom(status), response, ref}, state)
+      end
+
       def handle_info({:trigger, event, payload, ref} = p, state) do
         #Logger.debug "Trigger: #{inspect p}"
         handle_in(event, payload, state)
