@@ -146,11 +146,20 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   require Logger
 
-  test "socket can join channel", context do
+  test "socket can join a channel", context do
     channel = context[:client_channel]
     %{ref: ref} = ClientChannel.join(channel)
     IO.puts "Ref: #{inspect ref}"
     assert_receive {:ok, :join, _, ^ref}
+  end
+
+  test "socket can leave a channel", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+    ClientChannel.leave(channel)
+    assert_receive {"you:left", %{"message" => "bye!"}}
   end
 
   test "client can push to a channel", context do

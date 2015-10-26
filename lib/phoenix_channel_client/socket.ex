@@ -35,6 +35,10 @@ defmodule Phoenix.Channel.Client.Socket do
         GenServer.call(pid, {:channel_link, channel, topic})
       end
 
+      def channel_unlink(pid, channel) do
+        GenServer.call(pid, {:channel_unlink, channel})
+      end
+
       def init(opts) do
         send(self, :connect)
         {:ok, %{
@@ -53,7 +57,7 @@ defmodule Phoenix.Channel.Client.Socket do
       end
 
       def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-        #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+        Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
         Logger.debug "Socket State: #{inspect state}"
         ref = state.ref + 1
         push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
@@ -63,6 +67,11 @@ defmodule Phoenix.Channel.Client.Socket do
 
       def handle_call({:channel_link, channel, topic}, _from, state) do
         {:reply, channel, %{state | channels: [{channel, topic} | state.channels]}}
+      end
+
+      def handle_call({:channel_unlink, channel}, _from, state) do
+        channels = Enum.reject(state.channels, fn({c, _}) -> c == channel end)
+        {:reply, channel, %{state | channels: channels}}
       end
 
       def handle_info(:connect, %{opts: opts} = state) do
