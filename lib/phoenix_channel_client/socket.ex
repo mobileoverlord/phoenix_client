@@ -1,5 +1,5 @@
 defmodule Phoenix.Channel.Client.Socket do
-
+  alias Poison, as: JSON
   require Logger
 
   defmacro __using__(opts) do
@@ -21,8 +21,6 @@ defmodule Phoenix.Channel.Client.Socket do
     quote unquote: false do
       use GenServer
       @reconnect 5000
-
-      alias Poison, as: JSON
       #alias Phoenix.Channel.Client.Push
 
       def start_link() do
@@ -30,6 +28,7 @@ defmodule Phoenix.Channel.Client.Socket do
       end
 
       def push(pid, topic, event, payload) do
+        Logger.debug "HERE"
         GenServer.call(pid, {:push, topic, event, payload})
       end
 
@@ -65,8 +64,8 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-    #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-    #Logger.debug "Socket State: #{inspect state}"
+    Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+    Logger.debug "Socket State: #{inspect state}"
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
     send(socket, {:send, push})
@@ -93,7 +92,7 @@ defmodule Phoenix.Channel.Client.Socket do
     opts = Keyword.put(opts, :sender, self)
     Logger.debug "Connect Socket: #{inspect __MODULE__}"
     Logger.debug "Options: #{inspect opts}"
-    case :websocket_client.start_link(String.to_char_list(opts[:url]), Phoenix.Channel.Client.Socket, opts, extra_headers: headers) do
+    case :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts, extra_headers: headers) do
       {:ok, pid} ->
         state = %{state | socket: pid, state: :connected}
       _ ->
@@ -118,6 +117,7 @@ defmodule Phoenix.Channel.Client.Socket do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
+    Logger.debug "Handle in"
     send state.sender, JSON.decode!(msg)
     {:ok, state}
   end
@@ -126,6 +126,7 @@ defmodule Phoenix.Channel.Client.Socket do
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
   def websocket_info({:send, msg}, _conn_state, state) do
+    Logger.debug "Handle out"
     {:reply, {:text, json!(msg)}, state}
   end
 

@@ -152,7 +152,7 @@ defmodule Phoenix.Channel.Client.SocketTest do
     IO.puts "Ref: #{inspect ref}"
     assert_receive {:ok, :join, _, ^ref}
   end
-  
+
   # test "socket can leave a channel", context do
   #   channel = context[:client_channel]
   #   %{ref: ref} = ClientChannel.join(channel)

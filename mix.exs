@@ -28,7 +28,7 @@ defmodule PhoenixChannelClient.Mixfile do
   # Type `mix help deps` for more examples and options
   defp deps do
     [
-      {:websocket_client, "~> 1.1.0"},
+      {:websocket_client, github: "jeremyong/websocket_client"},
       {:phoenix, github: "phoenixframework/phoenix", only: :test},
       {:poison, "~> 1.3"},
       {:cowboy, "~> 1.0", only: :test}
