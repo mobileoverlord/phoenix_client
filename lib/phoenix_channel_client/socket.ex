@@ -1,6 +1,14 @@
 defmodule Phoenix.Channel.Client.Socket do
   alias Poison, as: JSON
+  use Behaviour
   require Logger
+
+  @reconnect 5000
+  @heartbeat_interval 30000
+
+  defcallback handle_close(reply :: Tuple.t, state :: map) ::
+              {:noreply, state :: map} |
+              {:stop, reason :: term, state :: map}
 
   defmacro __using__(opts) do
     quote do
@@ -20,11 +28,11 @@ defmodule Phoenix.Channel.Client.Socket do
   defp socket do
     quote unquote: false do
       use GenServer
-      @reconnect 5000
+
       #alias Phoenix.Channel.Client.Push
 
       def start_link() do
-        GenServer.start_link(Phoenix.Channel.Client.Socket, unquote(var!(config)), name: __MODULE__)
+        GenServer.start_link(Phoenix.Channel.Client.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
       end
 
       def push(pid, topic, event, payload) do
@@ -39,17 +47,27 @@ defmodule Phoenix.Channel.Client.Socket do
         GenServer.call(pid, {:channel_unlink, channel, topic})
       end
 
+      def handle_close(_reason, state) do
+        {:noreply, state}
+      end
+
+      defoverridable handle_close: 2
     end
   end
 
   ## Callbacks
 
-  def init(opts) do
+  def init({sender, opts}) do
     send(self, :connect)
+    reconnect = opts[:reconnect] || true
+    heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     {:ok, %{
+      sender: sender,
       opts: opts,
       socket: nil,
       channels: [],
+      reconnect: reconnect,
+      heartbeat_interval: heartbeat_interval,
       state: :disconnected,
       ref: 0
     }}
@@ -93,6 +111,7 @@ defmodule Phoenix.Channel.Client.Socket do
     Logger.debug "Options: #{inspect opts}"
     case :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts, extra_headers: headers) do
       {:ok, pid} ->
+        :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
         state = %{state | socket: pid, state: :connected}
       _ ->
         :erlang.send_after(@reconnect, self, :connect)
@@ -100,8 +119,19 @@ defmodule Phoenix.Channel.Client.Socket do
     {:noreply, state}
   end
 
+  def handle_info(:heartbeat, %{state: connected} = state) do
+    ref = state.ref + 1
+    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: to_string(ref)}})
+    :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
+    {:noreply, %{state | ref: ref}}
+  end
+
+  def handle_info(:heartbeat, state) do
+    {:noreply, state}
+  end
+
   # New Messages from the socket come in here
-  def handle_info(%{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg, %{channels: channels} = s) do
+  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg}, %{channels: channels} = s) do
     Enum.filter(channels, fn({channel, channel_topic}) ->
       topic == channel_topic
     end)
@@ -111,13 +141,20 @@ defmodule Phoenix.Channel.Client.Socket do
     {:noreply, s}
   end
 
+  def handle_info({:closed, reason}, state) do
+    Logger.debug "Socket Closed: #{inspect reason}"
+    #Enum.each(state.channels, fn()-> send(channel, {:trigger, :phx_error}) end)
+    if state.reconnect == true, do: send(self, :connect)
+    state.sender.handle_close(reason, %{state | state: :disconnected})
+  end
+
   @doc """
   Receives JSON encoded Socket.Message from remote WS endpoint and
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
     Logger.debug "Handle in: #{inspect msg}"
-    send state.sender, JSON.decode!(msg)
+    send state.sender, {:receive, JSON.decode!(msg)}
     {:ok, state}
   end
 
@@ -129,11 +166,13 @@ defmodule Phoenix.Channel.Client.Socket do
     {:reply, {:text, json!(msg)}, state}
   end
 
-  def websocket_info(:close, _conn_state, _state) do
+  def websocket_info(:close, _conn_state, state) do
+    send state.sender, {:closed, :normal}
     {:close, <<>>, "done"}
   end
 
-  def websocket_terminate(_reason, _conn_state, _state) do
+  def websocket_terminate(reason, _conn_state, state) do
+    send state.sender, {:closed, reason}
     :ok
   end
 

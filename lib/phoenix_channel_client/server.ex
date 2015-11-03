@@ -4,8 +4,8 @@ defmodule Phoenix.Channel.Client.Server do
 
   @default_timeout 5_000
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
+  def start_link(sender, opts) do
+    GenServer.start_link(__MODULE__, {sender, opts})
   end
 
   def join(pid, params \\ %{}) do
@@ -26,12 +26,12 @@ defmodule Phoenix.Channel.Client.Server do
     GenServer.call(pid, {:push, event, payload, timeout})
   end
 
-  def init(opts) do
+  def init({sender, opts}) do
     socket = opts[:socket]
     topic = opts[:topic]
     socket.channel_link(socket, self, topic)
     {:ok, %{
-      sender: opts[:sender],
+      sender: sender,
       socket: socket,
       topic: topic,
       join_push: nil,
@@ -75,7 +75,6 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_close", reason, ref} = payload, %{state: :closing} = state) do
-    Logger.debug "Closed and Unlink"
     state.socket.channel_unlink(state.socket, self, state.topic)
     state.sender.handle_close({:closed, reason}, %{state | state: :closed})
   end
