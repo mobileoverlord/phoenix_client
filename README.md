@@ -34,7 +34,7 @@ config :my_app, MySocket,
 Channels function with callbacks inside a module
 ```elixir
 defmodule MyChannel do
-  use Phoenix.Channel.Client.Server
+  use Phoenix.Channel.Client
 
   def handle_in("new_msg", payload, state) do
     {:noreply, state}
@@ -63,8 +63,10 @@ end
 
 usage
 ```elixir
+alias Phoenix.Channel.Client
 {:ok, socket} = MySocket.start_link
-MyChannel.start_link(socket: MySocket, topic: "rooms:lobby")
+Client.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
+# MyChannel.start_link(socket: MySocket, topic: "rooms:lobby")
 MyChannel.join(%{})
 MyChannel.leave()
 

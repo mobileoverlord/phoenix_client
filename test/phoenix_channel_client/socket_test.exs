@@ -115,27 +115,28 @@ defmodule Phoenix.Channel.Client.SocketTest do
   end
 
   defmodule ClientChannel do
-    use Phoenix.Channel.Client.Server
+    use Phoenix.Channel.Client
 
     def handle_in(event, payload, state) do
-      send(state.opts[:sender], {event, payload})
+      send(state.opts[:caller], {event, payload})
       {:noreply, state}
     end
 
     def handle_reply(payload, state) do
-      send(state.opts[:sender], payload)
+      send(state.opts[:caller], payload)
       {:noreply, state}
     end
 
     def handle_close(payload, state) do
-      send(state.opts[:sender], {:closed, payload})
+      send(state.opts[:caller], {:closed, payload})
       {:noreply, state}
     end
   end
 
   setup do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
+    {:ok, channel} = Phoenix.Channel.Client.channel(ClientChannel, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
+    #{:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
     {:ok, client_channel: channel}
   end
 
@@ -146,64 +147,64 @@ defmodule Phoenix.Channel.Client.SocketTest do
 
   require Logger
 
-  test "socket can join a channel", context do
+  # test "socket can join a channel", context do
+  #   channel = context[:client_channel]
+  #   %{ref: ref} = ClientChannel.join(channel)
+  #   IO.puts "Ref: #{inspect ref}"
+  #   assert_receive {:ok, :join, _, ^ref}
+  # end
+
+  test "socket can leave a channel", context do
     channel = context[:client_channel]
     %{ref: ref} = ClientChannel.join(channel)
     IO.puts "Ref: #{inspect ref}"
     assert_receive {:ok, :join, _, ^ref}
+    ClientChannel.leave(channel)
+    assert_receive {"you:left", %{"message" => "bye!"}}
+    assert_receive {:closed, _}
   end
 
-  # test "socket can leave a channel", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  #   ClientChannel.leave(channel)
-  #   assert_receive {"you:left", %{"message" => "bye!"}}
-  #   assert_receive {:closed, _}
-  # end
-  #
-  # test "client can push to a channel", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  #   push = ClientChannel.push(channel, "new:msg", %{test: :test})
-  #   assert_receive {"new:msg", %{"test" => "test"}}
-  # end
-  #
-  # test "push timeouts are received", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  #   %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   :timer.sleep(1_000)
-  #   assert_receive {:timeout, "foo:bar", ^ref}
-  # end
-  #
-  # test "push timeouts are received", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  #   %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   :timer.sleep(1_000)
-  #   assert_receive {:timeout, "foo:bar", ^ref}
-  # end
-  #
-  # test "push timeouts are able to be canceled", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  #   %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 100)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   ClientChannel.cancel_push(channel, ref)
-  #   refute_receive {:timeout, "foo:bar", ^ref}, 200
-  # end
+  test "client can push to a channel", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+    push = ClientChannel.push(channel, "new:msg", %{test: :test})
+    assert_receive {"new:msg", %{"test" => "test"}}
+  end
+
+  test "push timeouts are received", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
+    IO.puts "Ref: #{inspect ref}"
+    :timer.sleep(1_000)
+    assert_receive {:timeout, "foo:bar", ^ref}
+  end
+
+  test "push timeouts are received", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
+    IO.puts "Ref: #{inspect ref}"
+    :timer.sleep(1_000)
+    assert_receive {:timeout, "foo:bar", ^ref}
+  end
+
+  test "push timeouts are able to be canceled", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 100)
+    IO.puts "Ref: #{inspect ref}"
+    ClientChannel.cancel_push(channel, ref)
+    refute_receive {:timeout, "foo:bar", ^ref}, 200
+  end
 
 
 end

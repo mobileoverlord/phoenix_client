@@ -28,7 +28,6 @@ defmodule Phoenix.Channel.Client.Socket do
       end
 
       def push(pid, topic, event, payload) do
-        Logger.debug "HERE"
         GenServer.call(pid, {:push, topic, event, payload})
       end
 
@@ -117,7 +116,7 @@ defmodule Phoenix.Channel.Client.Socket do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
-    Logger.debug "Handle in"
+    Logger.debug "Handle in: #{inspect msg}"
     send state.sender, JSON.decode!(msg)
     {:ok, state}
   end
@@ -126,7 +125,7 @@ defmodule Phoenix.Channel.Client.Socket do
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
   def websocket_info({:send, msg}, _conn_state, state) do
-    Logger.debug "Handle out"
+    Logger.debug "Handle out: #{inspect json!(msg)}"
     {:reply, {:text, json!(msg)}, state}
   end
 
