@@ -59,7 +59,9 @@ defmodule Phoenix.Channel.Client.Socket do
 
   def init({sender, opts}) do
     send(self, :connect)
+    adapter = opts[:adapter] || Phoenix.Channel.Client.Adapters.WebsocketClient
     reconnect = opts[:reconnect] || true
+    opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     {:ok, %{
       sender: sender,
@@ -69,20 +71,14 @@ defmodule Phoenix.Channel.Client.Socket do
       reconnect: reconnect,
       heartbeat_interval: heartbeat_interval,
       state: :disconnected,
+      adapter: adapter,
       ref: 0
     }}
   end
 
-  def init(opts, _conn_state) do
-    Logger.debug "WS Init"
-    {:ok, %{
-      sender: opts[:sender]
-    }}
-  end
-
   def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-    Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-    Logger.debug "Socket State: #{inspect state}"
+    #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+    #Logger.debug "Socket State: #{inspect state}"
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
     send(socket, {:send, push})
@@ -103,13 +99,13 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def handle_info(:connect, %{opts: opts} = state) do
-    headers = opts[:headers] || []
     :crypto.start
     :ssl.start
     opts = Keyword.put(opts, :sender, self)
-    Logger.debug "Connect Socket: #{inspect __MODULE__}"
-    Logger.debug "Options: #{inspect opts}"
-    case :websocket_client.start_link(String.to_char_list(opts[:url]), __MODULE__, opts, extra_headers: headers) do
+    #Logger.debug "Connect Socket: #{inspect __MODULE__}"
+    Logger.debug "Url: #{inspect opts[:url]}"
+
+    case state.adapter.open(opts[:url], opts) do
       {:ok, pid} ->
         :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
         state = %{state | socket: pid, state: :connected}
@@ -148,41 +144,4 @@ defmodule Phoenix.Channel.Client.Socket do
     state.sender.handle_close(reason, %{state | state: :disconnected})
   end
 
-  @doc """
-  Receives JSON encoded Socket.Message from remote WS endpoint and
-  forwards message to client sender process
-  """
-  def websocket_handle({:text, msg}, _conn_state, state) do
-    Logger.debug "Handle in: #{inspect msg}"
-    send state.sender, {:receive, JSON.decode!(msg)}
-    {:ok, state}
-  end
-
-  @doc """
-  Sends JSON encoded Socket.Message to remote WS endpoint
-  """
-  def websocket_info({:send, msg}, _conn_state, state) do
-    Logger.debug "Handle out: #{inspect json!(msg)}"
-    {:reply, {:text, json!(msg)}, state}
-  end
-
-  def websocket_info(:close, _conn_state, state) do
-    send state.sender, {:closed, :normal}
-    {:close, <<>>, "done"}
-  end
-
-  def websocket_terminate(reason, _conn_state, state) do
-    send state.sender, {:closed, reason}
-    :ok
-  end
-
-  @doc """
-  Sends an event to the WebSocket server per the Message protocol
-  """
-  # def push(socket_pid, topic, %Push{event: event, payload: payload}) do
-  #   Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-  #   send socket_pid, {:send, %{topic: topic, event: event, payload: payload}}
-  # end
-
-  defp json!(map), do: JSON.encode!(map)
 end

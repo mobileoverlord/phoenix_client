@@ -43,7 +43,7 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_call({:join, params}, from, %{socket: socket} = state) do
-    Logger.debug "Join Channel: #{state.topic}"
+    #Logger.debug "Join Channel: #{state.topic}"
     push = socket.push(socket, state.topic, "phx_join", params)
     {:reply, push, %{state | state: :joining, join_push: push}}
   end
@@ -51,7 +51,7 @@ defmodule Phoenix.Channel.Client.Server do
   def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
     push = socket.push(socket, state.topic, "phx_leave", %{})
     if opts[:brutal] == true do
-      Logger.debug "Brutal Leave"
+      #Logger.debug "Brutal Leave"
       socket.channel_unlink(socket, self, state.topic)
       chan_state = :closed
     else
