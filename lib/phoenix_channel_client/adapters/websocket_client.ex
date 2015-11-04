@@ -8,8 +8,8 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
     :websocket_client.start_link(String.to_char_list(url), __MODULE__, opts, extra_headers: opts[:headers])
   end
 
-  def close do
-
+  def close(socket) do
+    send socket, :close
   end
 
   def init(opts, _conn_state) do

@@ -139,7 +139,7 @@ defmodule Phoenix.Channel.Client.Socket do
 
   def handle_info({:closed, reason}, state) do
     Logger.debug "Socket Closed: #{inspect reason}"
-    #Enum.each(state.channels, fn()-> send(channel, {:trigger, :phx_error}) end)
+    Enum.each(state.channels, fn()-> send(channel, {:trigger, :phx_error}) end)
     if state.reconnect == true, do: send(self, :connect)
     state.sender.handle_close(reason, %{state | state: :disconnected})
   end

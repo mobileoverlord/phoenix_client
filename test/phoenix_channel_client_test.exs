@@ -199,5 +199,5 @@ defmodule PhoenixChannelClientTest do
     refute_receive {:timeout, "foo:bar", ^ref}, 200
   end
 
-
+  
 end
