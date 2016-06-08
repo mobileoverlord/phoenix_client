@@ -28,11 +28,13 @@ defmodule Phoenix.Channel.Client.Server do
 
   def init({sender, opts}) do
     socket = opts[:socket]
+    socket_client = opts[:socket_client]
     topic = opts[:topic]
-    socket.channel_link(socket, self, topic)
+    socket_client.channel_link(socket, self, topic)
     {:ok, %{
       sender: sender,
       socket: socket,
+      socket_client: socket_client,
       topic: topic,
       join_push: nil,
       leave_push: nil,
@@ -42,17 +44,19 @@ defmodule Phoenix.Channel.Client.Server do
     }}
   end
 
-  def handle_call({:join, params}, from, %{socket: socket} = state) do
+  ## Callbacks
+
+  def handle_call({:join, params}, from, %{socket: socket, socket_client: socket_client} = state) do
     #Logger.debug "Join Channel: #{state.topic}"
-    push = socket.push(socket, state.topic, "phx_join", params)
+    push = socket_client.push(socket, state.topic, "phx_join", params)
     {:reply, push, %{state | state: :joining, join_push: push}}
   end
 
-  def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
-    push = socket.push(socket, state.topic, "phx_leave", %{})
+  def handle_call({:leave, opts}, _from, %{socket: socket, socket_client: socket_client} = state) do
+    push = socket_client.push(socket, state.topic, "phx_leave", %{})
     if opts[:brutal] == true do
       #Logger.debug "Brutal Leave"
-      socket.channel_unlink(socket, self, state.topic)
+      socket_client.channel_unlink(socket, self, state.topic)
       chan_state = :closed
     else
       chan_state = :closing
@@ -60,8 +64,8 @@ defmodule Phoenix.Channel.Client.Server do
     {:reply, :ok, %{state | state: chan_state, leave_push: push}}
   end
 
-  def handle_call({:push, event, payload, timeout}, _from, %{socket: socket} = state) do
-    push = socket.push(socket, state.topic, event, payload)
+  def handle_call({:push, event, payload, timeout}, _from, %{socket: socket, socket_client: socket_client} = state) do
+    push = socket_client.push(socket, state.topic, event, payload)
     timer = :erlang.start_timer(timeout, self(), push)
     {:reply, push, %{state | pushes: [{timer, push} | state.pushes]}}
   end
@@ -79,7 +83,7 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_close", reason, ref} = payload, %{state: :closing} = state) do
-    state.socket.channel_unlink(state.socket, self, state.topic)
+    state.socket_client.channel_unlink(state.socket, self, state.topic)
     state.sender.handle_close({:closed, reason}, %{state | state: :closed})
   end
 

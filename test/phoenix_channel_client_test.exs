@@ -136,7 +136,7 @@ defmodule PhoenixChannelClientTest do
 
   setup do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = Phoenix.Channel.Client.channel(ClientChannel, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
+    {:ok, channel} = Phoenix.Channel.Client.channel(ClientChannel, socket_client: ClientSocket, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
     #{:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
     {:ok, client_channel: channel}
   end
@@ -199,5 +199,5 @@ defmodule PhoenixChannelClientTest do
     refute_receive {:timeout, "foo:bar", ^ref}, 200
   end
 
-  
+
 end

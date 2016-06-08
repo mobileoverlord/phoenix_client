@@ -6,7 +6,7 @@ defmodule Phoenix.Channel.Client do
 
   defcallback handle_reply(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map}
-              
+
   defcallback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
               {:stop, reason :: term, state :: map}
