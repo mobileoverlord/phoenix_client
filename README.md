@@ -38,7 +38,7 @@ defmodule MyChannel do
 
   def handle_in("new_msg", payload, state) do
     {:noreply, state}
-  end  
+  end
 
   def handle_reply({:ok, "new_msg", resp, _ref}, state) do
     {:noreply, state}

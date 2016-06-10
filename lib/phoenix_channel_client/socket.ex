@@ -67,6 +67,7 @@ defmodule Phoenix.Channel.Client.Socket do
       sender: sender,
       opts: opts,
       socket: nil,
+      socket_client: nil,
       channels: [],
       reconnect: reconnect,
       heartbeat_interval: heartbeat_interval,

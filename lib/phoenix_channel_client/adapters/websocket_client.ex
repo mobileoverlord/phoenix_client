@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
+  defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   @behaviour Phoenix.Channel.Client.Adapter
 
   require Logger
