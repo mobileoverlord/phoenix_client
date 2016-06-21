@@ -16,7 +16,7 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
     Logger.debug "WS Init"
     {:ok, %{
       opts: opts,
-      json_module: opts[:json_module],
+      serializer: opts[:serializer],
       sender: opts[:sender]
     }}
   end
@@ -27,7 +27,7 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
     #Logger.debug "Handle in: #{inspect msg}"
-    send state.sender, {:receive, state.json_module.decode!(msg)}
+    send state.sender, {:receive, state.serializer.decode!(msg)}
     {:ok, state}
   end
 
@@ -36,7 +36,7 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   """
   def websocket_info({:send, msg}, _conn_state, state) do
     #Logger.debug "Handle out: #{inspect json!(msg)}"
-    {:reply, {:text, state.json_module.encode!(msg)}, state}
+    {:reply, {:text, state.serializer.encode!(msg)}, state}
   end
 
   def websocket_info(:close, _conn_state, state) do
