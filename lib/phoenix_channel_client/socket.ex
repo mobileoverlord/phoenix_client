@@ -1,5 +1,4 @@
 defmodule Phoenix.Channel.Client.Socket do
-  alias Poison, as: JSON
   use Behaviour
   require Logger
 
