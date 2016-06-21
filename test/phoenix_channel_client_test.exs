@@ -1,7 +1,7 @@
 defmodule PhoenixChannelClientTest do
   use ExUnit.Case, async: false
   use RouterHelper
-
+  import ExUnit.CaptureLog
   import Plug.Conn, except: [assign: 3]
 
   alias __MODULE__.Endpoint
@@ -117,6 +117,7 @@ defmodule PhoenixChannelClientTest do
 
   defmodule ClientChannel do
     use PhoenixChannelClient
+    require Logger
 
     def handle_in(event, payload, state) do
       send(state.opts[:caller], {event, payload})
@@ -134,10 +135,11 @@ defmodule PhoenixChannelClientTest do
     end
   end
 
+  require Logger
+
   setup do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = PhoenixChannelClient.channel(ClientChannel, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
-    #{:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
+    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
     {:ok, client_channel: channel}
   end
 
@@ -146,58 +148,47 @@ defmodule PhoenixChannelClientTest do
     :ok
   end
 
-  require Logger
-
-  test "socket can join a channel", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
-    IO.puts "Ref: #{inspect ref}"
+  test "socket can join a channel" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
   end
 
-  test "socket can leave a channel", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
+  test "socket can leave a channel" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    ClientChannel.leave(channel)
+    ClientChannel.leave
     assert_receive {"you:left", %{"message" => "bye!"}}
     assert_receive {:closed, _}
   end
 
-  test "client can push to a channel", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
+  test "client can push to a channel" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    push = ClientChannel.push(channel, "new:msg", %{test: :test})
+    push = ClientChannel.push("new:msg", %{test: :test})
     assert_receive {"new:msg", %{"test" => "test"}}
   end
 
-  test "push timeouts are received", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
+  test "push timeouts are received" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
+    %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 500)
     :timer.sleep(1_000)
     assert_receive {:timeout, "foo:bar", ^ref}
   end
 
-  test "push timeouts are received", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
+  test "push timeouts are received" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
+    %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 500)
     :timer.sleep(1_000)
     assert_receive {:timeout, "foo:bar", ^ref}
   end
 
-  test "push timeouts are able to be canceled", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
+  test "push timeouts are able to be canceled" do
+    %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 100)
-    ClientChannel.cancel_push(channel, ref)
+    %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 100)
+    ClientChannel.cancel_push(ref)
     refute_receive {:timeout, "foo:bar", ^ref}, 200
   end
-
-
 end

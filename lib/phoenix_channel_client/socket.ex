@@ -31,6 +31,7 @@ defmodule PhoenixChannelClient.Socket do
       #alias PhoenixChannelClient.Push
 
       def start_link() do
+        unquote(Logger.debug("Socket start_link #{__MODULE__}"))
         GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
       end
 
@@ -76,8 +77,8 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-    #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-    #Logger.debug "Socket State: #{inspect state}"
+    Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+    Logger.debug "Socket State: #{inspect state}"
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
     send(socket, {:send, push})
@@ -101,11 +102,12 @@ defmodule PhoenixChannelClient.Socket do
     :crypto.start
     :ssl.start
     opts = Keyword.put(opts, :sender, self)
-    #Logger.debug "Connect Socket: #{inspect __MODULE__}"
+
     Logger.debug "Url: #{inspect opts[:url]}"
 
     case state.adapter.open(opts[:url], opts) do
       {:ok, pid} ->
+        Logger.debug "Connected Socket: #{inspect __MODULE__}"
         :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
         state = %{state | socket: pid, state: :connected}
       _ ->
@@ -141,6 +143,11 @@ defmodule PhoenixChannelClient.Socket do
     Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
     if state.reconnect == true, do: send(self, :connect)
     state.sender.handle_close(reason, %{state | state: :disconnected})
+  end
+
+  def terminate(reason, state) do
+    Logger.debug("Socket terminating: #{reason}")
+    :ok
   end
 
 end

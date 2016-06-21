@@ -17,20 +17,24 @@ defmodule PhoenixChannelClient do
 
       @behaviour unquote(__MODULE__)
 
-      def join(pid, params \\ %{}) do
-        Server.join(pid, params)
+      def start_link(opts) do
+        Server.start_link(__MODULE__, opts)
       end
 
-      def leave(pid) do
-        Server.leave(pid)
+      def join(params \\ %{}) do
+        Server.join(__MODULE__, params)
       end
 
-      def cancel_push(pid, push_ref) do
-        Server.cancel_push(pid, push_ref)
+      def leave do
+        Server.leave(__MODULE__)
       end
 
-      def push(pid, event, payload, opts \\ []) do
-        Server.push(pid, event, payload, opts)
+      def cancel_push(push_ref) do
+        Server.cancel_push(__MODULE__, push_ref)
+      end
+
+      def push(event, payload, opts \\ []) do
+        Server.push(__MODULE__, event, payload, opts)
       end
 
       def handle_in(event, payload, state) do

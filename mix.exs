@@ -30,7 +30,7 @@ defmodule PhoenixChannelClient.Mixfile do
     [
       {:websocket_client, github: "jeremyong/websocket_client"},
       {:phoenix, github: "phoenixframework/phoenix", only: :test},
-      {:poison, "~> 1.3", only: :test},
+      {:poison, "~> 2.0", only: :test},
       {:cowboy, "~> 1.0", only: :test}
     ]
   end
