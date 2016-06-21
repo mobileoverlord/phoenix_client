@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client.Server do
+defmodule PhoenixChannelClient.Server do
   use GenServer
   require Logger
 

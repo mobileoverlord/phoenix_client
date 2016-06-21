@@ -112,11 +112,11 @@ defmodule PhoenixChannelClientTest do
   end
 
   defmodule ClientSocket do
-    use Phoenix.Channel.Client.Socket, otp_app: :channel_client
+    use PhoenixChannelClient.Socket, otp_app: :channel_client
   end
 
   defmodule ClientChannel do
-    use Phoenix.Channel.Client
+    use PhoenixChannelClient
 
     def handle_in(event, payload, state) do
       send(state.opts[:caller], {event, payload})
@@ -136,7 +136,7 @@ defmodule PhoenixChannelClientTest do
 
   setup do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = Phoenix.Channel.Client.channel(ClientChannel, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
+    {:ok, channel} = PhoenixChannelClient.channel(ClientChannel, socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
     #{:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", sender: self)
     {:ok, client_channel: channel}
   end

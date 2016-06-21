@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client.Adapter do
+defmodule PhoenixChannelClient.Adapter do
   use Behaviour
 
   defcallback open(url :: String.t, opts :: Keyword.t) ::

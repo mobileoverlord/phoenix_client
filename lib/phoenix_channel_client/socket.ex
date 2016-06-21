@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client.Socket do
+defmodule PhoenixChannelClient.Socket do
   use Behaviour
   require Logger
 
@@ -28,10 +28,10 @@ defmodule Phoenix.Channel.Client.Socket do
     quote unquote: false do
       use GenServer
 
-      #alias Phoenix.Channel.Client.Push
+      #alias PhoenixChannelClient.Push
 
       def start_link() do
-        GenServer.start_link(Phoenix.Channel.Client.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
+        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
       end
 
       def push(pid, topic, event, payload) do
@@ -58,7 +58,7 @@ defmodule Phoenix.Channel.Client.Socket do
 
   def init({sender, opts}) do
     send(self, :connect)
-    adapter = opts[:adapter] || Phoenix.Channel.Client.Adapters.WebsocketClient
+    adapter = opts[:adapter] || PhoenixChannelClient.Adapters.WebsocketClient
     reconnect = opts[:reconnect] || true
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
@@ -114,9 +114,9 @@ defmodule Phoenix.Channel.Client.Socket do
     {:noreply, state}
   end
 
-  def handle_info(:heartbeat, %{state: connected} = state) do
+  def handle_info(:heartbeat, state) do
     ref = state.ref + 1
-    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: to_string(ref)}})
+    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: ref}})
     :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
     {:noreply, %{state | ref: ref}}
   end
@@ -126,14 +126,14 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   # New Messages from the socket come in here
-  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg}, %{channels: channels} = s) do
-    Enum.filter(channels, fn({channel, channel_topic}) ->
+  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}}, %{channels: channels} = state) do
+    Enum.filter(channels, fn({_channel, channel_topic}) ->
       topic == channel_topic
     end)
     |> Enum.each(fn({channel, _}) ->
       send(channel, {:trigger, event, payload, ref})
     end)
-    {:noreply, s}
+    {:noreply, state}
   end
 
   def handle_info({:closed, reason}, state) do

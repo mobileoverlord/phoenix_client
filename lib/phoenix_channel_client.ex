@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client do
+defmodule PhoenixChannelClient do
   use Behaviour
 
   defcallback handle_in(event :: String.t, payload :: map, state :: map) ::
@@ -6,14 +6,14 @@ defmodule Phoenix.Channel.Client do
 
   defcallback handle_reply(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map}
-              
+
   defcallback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
               {:stop, reason :: term, state :: map}
 
   defmacro __using__(_opts) do
     quote do
-      alias Phoenix.Channel.Client.Server
+      alias PhoenixChannelClient.Server
 
       @behaviour unquote(__MODULE__)
 
@@ -50,6 +50,6 @@ defmodule Phoenix.Channel.Client do
   end
 
   def channel(sender, opts) do
-    Phoenix.Channel.Client.Server.start_link(sender, opts)
+    PhoenixChannelClient.Server.start_link(sender, opts)
   end
 end

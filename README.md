@@ -1,4 +1,4 @@
-# Phoenix.Channel.Client
+# PhoenixChannelClient
 
 Work In Progress!
 - [x] client, channel and push API
@@ -25,7 +25,7 @@ Example usage
 Using the Phoenix Channel Client requires you add a Socket module to your supervision tree for handling the socket connection.
 ```elixir
 defmodule MySocket do
-  use Phoenix.Channel.Client.Socket, otp_app: :my_app
+  use PhoenixChannelClient.Socket, otp_app: :my_app
 end
 ```
 
@@ -38,7 +38,7 @@ config :my_app, MySocket,
 Channels function with callbacks inside a module
 ```elixir
 defmodule MyChannel do
-  use Phoenix.Channel.Client
+  use PhoenixChannelClient
 
   def handle_in("new_msg", payload, state) do
     {:noreply, state}
@@ -67,12 +67,10 @@ end
 
 usage
 ```elixir
-alias Phoenix.Channel.Client
 {:ok, socket} = MySocket.start_link
-Client.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
-# MyChannel.start_link(socket: MySocket, topic: "rooms:lobby")
-MyChannel.join(%{})
-MyChannel.leave()
+{:ok, channel} = PhoenixChannelClient.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
+MyChannel.join(channel, %{})
+MyChannel.leave(channel)
 
 push = MyChannel.push("new:message", %{})
 MyChannel.cancel_push(push)
