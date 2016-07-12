@@ -45,7 +45,8 @@
   end
 
   def websocket_terminate(reason, _conn_state, state) do
-    send state.sender, {:closed, reason}
-    :ok
-  end
+     send state.sender, {:closed, reason}
+     :timer.sleep(1000)
+     :ok
+   end
 end
