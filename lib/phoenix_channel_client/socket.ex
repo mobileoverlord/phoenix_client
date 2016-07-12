@@ -145,4 +145,9 @@ defmodule Phoenix.Channel.Client.Socket do
     state.sender.handle_close(reason, %{state | state: :disconnected})
   end
 
+  def terminate(reason, state) do
+   state.sender.handle_close(reason, %{state | state: :disconnected})
+   :ok
+  end
+
 end
