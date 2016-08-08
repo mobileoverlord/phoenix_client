@@ -58,6 +58,7 @@ defmodule Phoenix.Channel.Client.Socket do
   ## Callbacks
 
   def init({sender, opts}) do
+    IO.inspect opts
     send(self, :connect)
     adapter = opts[:adapter] || Phoenix.Channel.Client.Adapters.WebsocketClient
     reconnect = opts[:reconnect] || true
@@ -139,9 +140,13 @@ defmodule Phoenix.Channel.Client.Socket do
 
   def handle_info({:closed, reason}, state) do
     Logger.debug "Socket Closed: #{inspect reason}"
-    Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
+    Enum.each(state.channels, fn({pid, _})-> send(pid, {:trigger, :phx_error, reason, state.ref}) end)
     if state.reconnect == true, do: send(self, :connect)
     state.sender.handle_close(reason, %{state | state: :disconnected})
+  end
+
+  def terminate(_, state) do
+    {:stop, state}
   end
 
 end

@@ -6,7 +6,7 @@ defmodule Phoenix.Channel.Client do
 
   defcallback handle_reply(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map}
-              
+
   defcallback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
               {:stop, reason :: term, state :: map}
@@ -42,6 +42,7 @@ defmodule Phoenix.Channel.Client do
       end
 
       def handle_close(payload, state) do
+        IO.inspect "Handle Close"
         {:noreply, state}
       end
 
@@ -51,5 +52,10 @@ defmodule Phoenix.Channel.Client do
 
   def channel(sender, opts) do
     Phoenix.Channel.Client.Server.start_link(sender, opts)
+  end
+
+  def terminate(message, state) do
+    IO.puts "Terminate: #{inspect message}"
+    :shutdown
   end
 end

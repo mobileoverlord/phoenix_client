@@ -75,6 +75,7 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_error", reason, ref} = payload, state) do
+    IO.puts "Trigger Error: #{inspect reason}"
     state.sender.handle_close({:closed, reason}, %{state | state: :errored})
   end
 
@@ -98,6 +99,7 @@ defmodule Phoenix.Channel.Client.Server do
 
   # Push timer expired
   def handle_info({:timeout, timer, push}, %{pushes: pushes} = state) do
+    IO.puts "Timer Expired for Push"
     {[{_, push}], pushes} = Enum.partition(pushes, fn({ref, _}) ->
       ref == timer
     end)

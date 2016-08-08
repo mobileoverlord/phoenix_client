@@ -4,6 +4,6 @@ Logger.configure(level: :debug)
 Application.ensure_all_started(:cowboy)
 Application.ensure_all_started(:phoenix)
 
-Code.require_file "../deps/phoenix/test/router_helper.exs", __DIR__
+Code.require_file "../deps/phoenix/test/support/router_helper.exs", __DIR__
 
 ExUnit.start()

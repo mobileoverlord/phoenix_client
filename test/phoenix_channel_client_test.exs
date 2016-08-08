@@ -2,6 +2,7 @@ defmodule PhoenixChannelClientTest do
   use ExUnit.Case, async: false
   use RouterHelper
 
+  import ExUnit.CaptureLog
   import Plug.Conn, except: [assign: 3]
 
   alias __MODULE__.Endpoint
@@ -181,15 +182,6 @@ defmodule PhoenixChannelClientTest do
     assert_receive {:timeout, "foo:bar", ^ref}
   end
 
-  test "push timeouts are received", context do
-    channel = context[:client_channel]
-    %{ref: ref} = ClientChannel.join(channel)
-    assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ClientChannel.push(channel, "foo:bar", %{}, timeout: 500)
-    :timer.sleep(1_000)
-    assert_receive {:timeout, "foo:bar", ^ref}
-  end
-
   test "push timeouts are able to be canceled", context do
     channel = context[:client_channel]
     %{ref: ref} = ClientChannel.join(channel)
@@ -199,5 +191,5 @@ defmodule PhoenixChannelClientTest do
     refute_receive {:timeout, "foo:bar", ^ref}, 200
   end
 
-  
+
 end

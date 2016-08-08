@@ -3,22 +3,36 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
 
   require Logger
 
-  def open(url, opts) do
+  def open(url, adapter_opts) do
     Logger.debug "Called Open"
-    :websocket_client.start_link(String.to_char_list(url), __MODULE__, opts, extra_headers: opts[:headers])
+    :websocket_client.start_link(String.to_char_list(url), __MODULE__, [self(), adapter_opts])
   end
 
   def close(socket) do
     send socket, :close
   end
 
-  def init(opts, _conn_state) do
-    Logger.debug "WS Init"
-    {:ok, %{
-      opts: opts,
-      json_module: opts[:json_module],
-      sender: opts[:sender]
-    }}
+  @doc false
+  def init([socket, adapter_opts]) do
+    {:once, %{sender: socket, keepalive: adapter_opts[:keepalive], json_module: adapter_opts[:json_module]}}
+  end
+
+  # def init(opts, conn_state) do
+  #   Logger.debug "WS Init"
+  #   IO.puts "Opts: #{inspect opts}"
+  #   IO.puts "State: #{inspect conn_state}"
+  #   {:ok, %{
+  #     opts: opts,
+  #     json_module: opts[:json_module],
+  #     sender: opts[:sender]
+  #   }}
+  # end
+
+  def onconnect(_req, state) do
+    case state.keepalive do
+      nil -> {:ok, state}
+      keepalive -> {:ok, state, keepalive}
+    end
   end
 
   @doc """
@@ -44,8 +58,16 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
     {:close, <<>>, "done"}
   end
 
-  def websocket_terminate(reason, _conn_state, state) do
+  @doc false
+  def ondisconnect(reason, state) do
     send state.sender, {:closed, reason}
-    :ok
+    {:close, :normal, state}
   end
+
+  @doc false
+  def websocket_terminate(reason, _req, state) do
+    send state.sender, {:closed, reason}
+    Logger.info(fn -> "Websocket connection closed with reason #{inspect reason}" end)
+  end
+
 end
