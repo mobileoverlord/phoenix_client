@@ -89,12 +89,22 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_reply", %{"response" => response, "status" => status}, ref}, state) do
-    state.sender.handle_reply({String.to_atom(status), response, ref}, state)
+    {[{timer_ref, _}], pushes} = Enum.partition(state.pushes, fn({_, push}) ->
+      push.ref == ref
+    end)
+    :erlang.cancel_timer(timer_ref)
+    state.sender.handle_reply({String.to_atom(status), response, ref}, %{state | pushes: pushes})
   end
 
   def handle_info({:trigger, event, payload, ref} = p, state) do
     #Logger.debug "Trigger: #{inspect p}"
     state.sender.handle_in(event, payload, state)
+  end
+
+  def handle_info(:rejoin, state) do
+    push = state.join_push
+    push = state.socket.push(state.socket, push.topic, "phx_join", push.payload)
+    {:reply, push, %{state | state: :joining}}
   end
 
   # Push timer expired
