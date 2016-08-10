@@ -93,11 +93,11 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_reply", %{"response" => response, "status" => status}, ref}, state) do
-    {[{timer_ref, _}], pushes} = Enum.partition(state.pushes, fn({_, push}) ->
+    {[{timer_ref, push}], pushes} = Enum.partition(state.pushes, fn({_, push}) ->
       push.ref == ref
     end)
     :erlang.cancel_timer(timer_ref)
-    state.sender.handle_reply({String.to_atom(status), response, ref}, %{state | pushes: pushes})
+    state.sender.handle_reply({String.to_atom(status), push.topic, response, ref}, %{state | pushes: pushes})
   end
 
   def handle_info({:trigger, event, payload, ref} = p, state) do
