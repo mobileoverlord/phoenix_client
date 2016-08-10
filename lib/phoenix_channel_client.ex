@@ -34,6 +34,7 @@ defmodule Phoenix.Channel.Client do
       end
 
       def handle_in(event, payload, state) do
+        IO.inspect "Handle in: #{event} #{inspect payload}"
         {:noreply, state}
       end
 

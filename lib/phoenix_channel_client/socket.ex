@@ -146,7 +146,8 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def terminate(_, state) do
-    {:stop, state}
+    IO.inspect "Socket Terminated"
+    {:shutdown, :normal}
   end
 
 end

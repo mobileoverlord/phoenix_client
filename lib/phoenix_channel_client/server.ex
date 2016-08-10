@@ -8,9 +8,10 @@ defmodule Phoenix.Channel.Client.Server do
     GenServer.start_link(__MODULE__, {sender, opts})
   end
 
-  def join(pid, params \\ %{}) do
+  def join(pid, params \\ %{}, opts \\ []) do
     Logger.debug "Call Join"
-    GenServer.call(pid, {:join, params})
+    timeout =  opts[:timeout] || @default_timeout
+    GenServer.call(pid, {:join, params, timeout})
   end
 
   def leave(pid, opts \\ []) do
@@ -35,6 +36,7 @@ defmodule Phoenix.Channel.Client.Server do
       socket: socket,
       topic: topic,
       join_push: nil,
+      join_timer: nil,
       leave_push: nil,
       pushes: [],
       opts: opts,
@@ -42,10 +44,11 @@ defmodule Phoenix.Channel.Client.Server do
     }}
   end
 
-  def handle_call({:join, params}, from, %{socket: socket} = state) do
+  def handle_call({:join, params, timeout}, from, %{socket: socket} = state) do
     #Logger.debug "Join Channel: #{state.topic}"
     push = socket.push(socket, state.topic, "phx_join", params)
-    {:reply, push, %{state | state: :joining, join_push: push}}
+    timer_ref = :erlang.start_timer(timeout, self(), push)
+    {:reply, push, %{state | state: :joining, join_push: push, join_timer: timer_ref}}
   end
 
   def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
@@ -85,6 +88,7 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info({:trigger, "phx_reply", %{"status" => status} = payload, ref}, %{join_push: %{ref: join_ref}} = state) when ref == join_ref do
+    :erlang.cancel_timer(state.join_timer)
     state.sender.handle_reply({String.to_atom(status), :join, payload, ref}, %{state | state: :joined})
   end
 
@@ -102,19 +106,30 @@ defmodule Phoenix.Channel.Client.Server do
   end
 
   def handle_info(:rejoin, state) do
+    IO.inspect "Channel Rejoin"
     push = state.join_push
     push = state.socket.push(state.socket, push.topic, "phx_join", push.payload)
-    {:reply, push, %{state | state: :joining}}
+    {:noreply, %{state | state: :joining}}
   end
 
   # Push timer expired
-  def handle_info({:timeout, timer, push}, %{pushes: pushes} = state) do
-    IO.puts "Timer Expired for Push"
-    {[{_, push}], pushes} = Enum.partition(pushes, fn({ref, _}) ->
-      ref == timer
-    end)
 
-    state.sender.handle_reply({:timeout, push.event, push.ref}, %{state | pushes: pushes})
+  def handle_info({:timeout, timer, push}, %{join_push: push} = state) do
+    IO.puts "Timer Expired for Join: #{inspect push}"
+    state.sender.handle_reply({:timeout, :join}, state)
+  end
+  def handle_info({:timeout, timer, push}, %{pushes: pushes} = state) do
+    IO.puts "Timer Expired for Push: #{inspect pushes}"
+    partition =
+      Enum.partition(pushes, fn({ref, _}) ->
+        ref == timer
+      end)
+
+    case partition do
+      {[{_, push}], pushes} ->
+        state.sender.handle_reply({:timeout, push.event, push.ref}, %{state | pushes: pushes})
+      _ -> {:noreply, state}
+    end
   end
 
 end

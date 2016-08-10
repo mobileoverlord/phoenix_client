@@ -4,7 +4,6 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   require Logger
 
   def open(url, adapter_opts) do
-    Logger.debug "Called Open"
     :websocket_client.start_link(String.to_char_list(url), __MODULE__, [self(), adapter_opts])
   end
 
@@ -54,12 +53,14 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   end
 
   def websocket_info(:close, _conn_state, state) do
+    IO.inspect "Socket Closed"
     send state.sender, {:closed, :normal}
     {:close, <<>>, "done"}
   end
 
   @doc false
   def ondisconnect(reason, state) do
+    IO.inspect "Socket Disconnected"
     send state.sender, {:closed, reason}
     {:close, :normal, state}
   end
