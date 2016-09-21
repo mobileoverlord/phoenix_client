@@ -61,7 +61,7 @@ defmodule Phoenix.Channel.Client.Socket do
     IO.inspect opts
     send(self, :connect)
     adapter = opts[:adapter] || Phoenix.Channel.Client.Adapters.WebsocketClient
-    reconnect = opts[:reconnect] || true
+    reconnect = Keyword.get(opts, :reconnect], true)
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     {:ok, %{
