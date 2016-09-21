@@ -45,7 +45,7 @@ defmodule PhoenixChannelClientTest do
       {:noreply, socket}
     end
 
-    def handle_in(_, message, socket) do
+    def handle_in(_, _message, socket) do
       {:noreply, socket}
     end
 
@@ -149,12 +149,12 @@ defmodule PhoenixChannelClientTest do
 
   require Logger
 
-  # test "socket can join a channel", context do
-  #   channel = context[:client_channel]
-  #   %{ref: ref} = ClientChannel.join(channel)
-  #   IO.puts "Ref: #{inspect ref}"
-  #   assert_receive {:ok, :join, _, ^ref}
-  # end
+  test "socket can join a channel", context do
+    channel = context[:client_channel]
+    %{ref: ref} = ClientChannel.join(channel)
+    IO.puts "Ref: #{inspect ref}"
+    assert_receive {:ok, :join, _, ^ref}
+  end
 
   test "socket can leave a channel", context do
     channel = context[:client_channel]
