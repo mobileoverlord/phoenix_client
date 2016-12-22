@@ -3,35 +3,22 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
 
   require Logger
 
-  def open(url, adapter_opts) do
-    :websocket_client.start_link(String.to_char_list(url), __MODULE__, [self(), adapter_opts])
+  def open(url, opts) do
+    Logger.debug "Called Open"
+    :websocket_client.start_link(String.to_char_list(url), __MODULE__, opts, extra_headers: opts[:headers])
   end
 
   def close(socket) do
     send socket, :close
   end
 
-  @doc false
-  def init([socket, adapter_opts]) do
-    {:once, %{sender: socket, keepalive: adapter_opts[:keepalive], json_module: adapter_opts[:json_module]}}
-  end
-
-  # def init(opts, conn_state) do
-  #   Logger.debug "WS Init"
-  #   IO.puts "Opts: #{inspect opts}"
-  #   IO.puts "State: #{inspect conn_state}"
-  #   {:ok, %{
-  #     opts: opts,
-  #     json_module: opts[:json_module],
-  #     sender: opts[:sender]
-  #   }}
-  # end
-
-  def onconnect(_req, state) do
-    case state.keepalive do
-      nil -> {:ok, state}
-      keepalive -> {:ok, state, keepalive}
-    end
+  def init(opts, _conn_state) do
+    Logger.debug "WS Init"
+    {:ok, %{
+      opts: opts,
+      serializer: opts[:serializer],
+      sender: opts[:sender]
+    }}
   end
 
   @doc """
@@ -40,7 +27,7 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
     #Logger.debug "Handle in: #{inspect msg}"
-    send state.sender, {:receive, state.json_module.decode!(msg)}
+    send state.sender, {:receive, state.serializer.decode!(msg)}
     {:ok, state}
   end
 
@@ -49,26 +36,16 @@ defmodule Phoenix.Channel.Client.Adapters.WebsocketClient do
   """
   def websocket_info({:send, msg}, _conn_state, state) do
     #Logger.debug "Handle out: #{inspect json!(msg)}"
-    {:reply, {:text, state.json_module.encode!(msg)}, state}
+    {:reply, {:text, state.serializer.encode!(msg)}, state}
   end
 
   def websocket_info(:close, _conn_state, state) do
-    IO.inspect "Socket Closed"
     send state.sender, {:closed, :normal}
     {:close, <<>>, "done"}
   end
 
-  @doc false
-  def ondisconnect(reason, state) do
-    IO.inspect "Socket Disconnected"
+  def websocket_terminate(reason, _conn_state, state) do
     send state.sender, {:closed, reason}
-    {:close, :normal, state}
+    :ok
   end
-
-  @doc false
-  def websocket_terminate(reason, _req, state) do
-    send state.sender, {:closed, reason}
-    Logger.info(fn -> "Websocket connection closed with reason #{inspect reason}" end)
-  end
-
 end

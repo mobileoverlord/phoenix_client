@@ -21,7 +21,7 @@ defmodule PhoenixChannelClientTest do
 
   Application.put_env(:channel_client, ClientSocket, [
     url: "ws://127.0.0.1:#{@port}/ws/admin/websocket",
-    json_module: Poison
+    serializer: Poison
   ])
 
   defmodule RoomChannel do

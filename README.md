@@ -13,7 +13,10 @@ Add phoenix_channel_client as a dependency in your `mix.exs` file.
 
 ```elixir
 def deps do
-  [{:phoenix_channel_client, "~> 0.0.1"} ]
+  [
+    {:phoenix_channel_client, "~> 0.0.1"},
+    {:poison, "~> 2.0"} #optional. You can use your own JSON serializer
+  ]
 end
 ```
 
@@ -29,7 +32,7 @@ end
 ```elixir
 config :my_app, MySocket,
   url: "ws://localhost:4000/socket/websocket",
-  json_module: Poison
+  serializer: Poison  
 ```
 
 Channels function with callbacks inside a module
