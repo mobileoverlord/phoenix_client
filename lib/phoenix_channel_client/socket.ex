@@ -57,31 +57,38 @@ defmodule PhoenixChannelClient.Socket do
   ## Callbacks
 
   def init({sender, opts}) do
-    send(self(), :connect)
     adapter = opts[:adapter] || PhoenixChannelClient.Adapters.WebsocketClient
+
+    :crypto.start
+    :ssl.start
     reconnect = opts[:reconnect] || true
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
+    ws_opts = Keyword.put(opts, :sender, self())
+    {:ok, pid} = adapter.open(ws_opts[:url], ws_opts)
+
+
+
     {:ok, %{
       sender: sender,
       opts: opts,
-      socket: nil,
+      socket: pid,
       channels: [],
       reconnect: reconnect,
+      reconnect_timer: nil,
       heartbeat_interval: heartbeat_interval,
-      state: :disconnected,
+      status: :disconnected,
       adapter: adapter,
+      queue: :queue.new(),
       ref: 0
     }}
   end
 
   def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-    Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-    Logger.debug "Socket State: #{inspect state}"
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
-    send(socket, {:send, push})
-    {:reply, push, %{state | ref: ref}}
+    send(self(), :flush)
+    {:reply, push, %{state | ref: ref, queue: :queue.in(push, state.queue)}}
   end
 
   def handle_call({:channel_link, channel, topic}, _from, state) do
@@ -100,24 +107,10 @@ defmodule PhoenixChannelClient.Socket do
     {:reply, channel, %{state | channels: channels}}
   end
 
-  def handle_info(:connect, %{opts: opts} = state) do
-    :crypto.start
-    :ssl.start
-    opts = Keyword.put(opts, :sender, self())
-
-    Logger.debug "Url: #{inspect opts[:url]}"
-
-    state =
-      case state.adapter.open(opts[:url], opts) do
-        {:ok, pid} ->
-          Logger.debug "Connected Socket: #{inspect __MODULE__}"
-          :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
-          %{state | socket: pid, state: :connected}
-        _ ->
-          :erlang.send_after(@reconnect, self(), :connect)
-          state
-      end
-    {:noreply, state}
+  def handle_info({:connected, socket}, %{socket: socket} = state) do
+    Logger.debug "Connected Socket: #{inspect __MODULE__}"
+    :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
+    {:noreply, %{state | status: :connected}}
   end
 
   def handle_info(:heartbeat, state) do
@@ -128,7 +121,8 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   # New Messages from the socket come in here
-  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}}, %{channels: channels} = state) do
+  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}} = msg, %{channels: channels} = state) do
+    Logger.debug "Socket Received: #{inspect msg}"
     Enum.filter(channels, fn({_channel, channel_topic}) ->
       topic == channel_topic
     end)
@@ -138,11 +132,29 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, state}
   end
 
-  def handle_info({:closed, reason}, state) do
+  def handle_info({:closed, reason, socket}, %{socket: socket} = state) do
     Logger.debug "Socket Closed: #{inspect reason}"
     Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
     if state.reconnect == true, do: send(self(), :connect)
-    state.sender.handle_close(reason, %{state | state: :disconnected})
+    state.sender.handle_close(reason, %{state | status: :disconnected})
+  end
+
+  def handle_info(:flush, %{status: :connected} = state) do
+    state =
+      case :queue.out(state.queue) do
+        {:empty, _queue} -> state
+        {{:value, push}, queue} ->
+          Logger.debug "Socket Push: #{inspect push}"
+          send(state.socket, {:send, push})
+          :erlang.send_after(100, self(), :flush)
+          %{state | queue: queue}
+      end
+    {:noreply, state}
+  end
+
+  def handle_info(:flush, state) do
+    :erlang.send_after(100, self(), :flush)
+    {:noreply, state}
   end
 
   def terminate(reason, _state) do

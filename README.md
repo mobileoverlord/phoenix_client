@@ -1,10 +1,5 @@
 # PhoenixChannelClient
 
-Work In Progress!
-- [x] client, channel and push API
-- [ ] socket reconnects
-- [ ] message buffering
-
 Channel client for connecting to Phoenix
 
 ## Usage
@@ -14,7 +9,7 @@ Add phoenix_channel_client as a dependency in your `mix.exs` file.
 ```elixir
 def deps do
   [
-    {:phoenix_channel_client, "~> 0.0.1"},
+    {:phoenix_channel_client, github: "mobileoverlord/phoenix_channel_client"},
     {:poison, "~> 2.0"} #optional. You can use your own JSON serializer
   ]
 end

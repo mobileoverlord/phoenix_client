@@ -25,8 +25,9 @@ defmodule PhoenixChannelClientTest do
 
   defmodule RoomChannel do
     use Phoenix.Channel
-
+    require Logger
     def join(topic, message, socket) do
+      Logger.debug "Channel Join Called"
       Process.flag(:trap_exit, true)
       Process.register(self(), String.to_atom(topic))
       send(self(), {:after_join, message})
@@ -144,7 +145,8 @@ defmodule PhoenixChannelClientTest do
   end
 
   setup_all do
-    capture_log fn -> Endpoint.start_link() end
+    Endpoint.start_link()
+    #capture_log fn -> Endpoint.start_link() end
     :ok
   end
 
@@ -155,6 +157,7 @@ defmodule PhoenixChannelClientTest do
 
   test "socket can leave a channel" do
     %{ref: ref} = ClientChannel.join
+    IO.inspect ref
     assert_receive {:ok, :join, _, ^ref}
     ClientChannel.leave
     assert_receive {"you:left", %{"message" => "bye!"}}

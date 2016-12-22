@@ -12,13 +12,25 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
     send socket, :close
   end
 
-  def init(opts, _conn_state) do
+  def init(opts) do
     Logger.debug "WS Init"
-    {:ok, %{
+    {:once, %{
       opts: opts,
       serializer: opts[:serializer],
       sender: opts[:sender]
     }}
+  end
+
+  def onconnect(_, state) do
+    Logger.debug "Websocket Connected"
+    send state.sender, {:connected, self()}
+    {:ok, state}
+  end
+
+  def ondisconnect({:remote, :closed}, state) do
+    Logger.debug "Websocket Disconnected"
+    send state.sender, {:closed, :normal, self()}
+    {:ok, state}
   end
 
   @doc """
@@ -26,7 +38,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
-    #Logger.debug "Handle in: #{inspect msg}"
+    Logger.debug "Handle in: #{inspect msg}"
     send state.sender, {:receive, state.serializer.decode!(msg)}
     {:ok, state}
   end
@@ -34,8 +46,9 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   @doc """
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
-  def websocket_info({:send, msg}, _conn_state, state) do
-    #Logger.debug "Handle out: #{inspect json!(msg)}"
+  def websocket_info({:send, msg}, conn_state, state) do
+    Logger.debug "Handle out: #{inspect msg}"
+    Logger.debug "Socket State: #{inspect conn_state}"
     {:reply, {:text, state.serializer.encode!(msg)}, state}
   end
 

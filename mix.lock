@@ -5,4 +5,4 @@
   "plug": {:hex, :plug, "1.1.6", "8927e4028433fcb859e000b9389ee9c37c80eb28378eeeea31b0273350bf668b", [:mix], [{:cowboy, "~> 1.0", [hex: :cowboy, optional: true]}]},
   "poison": {:hex, :poison, "2.2.0", "4763b69a8a77bd77d26f477d196428b741261a761257ff1cf92753a0d4d24a63", [:mix], []},
   "ranch": {:hex, :ranch, "1.2.1", "a6fb992c10f2187b46ffd17ce398ddf8a54f691b81768f9ef5f461ea7e28c762", [:make], []},
-  "websocket_client": {:git, "https://github.com/jeremyong/websocket_client.git", "f6892c8b55004008ce2d52be7d98b156f3e34569", []}}
+  "websocket_client": {:hex, :websocket_client, "1.2.1", "a965ce0be5583c90347400bceca66629e4debd5feb9bd516107e2924bdf39dad", [:rebar3], []}}
