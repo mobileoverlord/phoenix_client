@@ -9,7 +9,7 @@ Add phoenix_channel_client as a dependency in your `mix.exs` file.
 ```elixir
 def deps do
   [
-    {:phoenix_channel_client, github: "mobileoverlord/phoenix_channel_client"},
+    {:phoenix_channel_client, "~> 0.1.0"},
     {:poison, "~> 2.0"} #optional. You can use your own JSON serializer
   ]
 end
