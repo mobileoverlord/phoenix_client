@@ -1,11 +1,10 @@
 defmodule PhoenixChannelClient.Socket do
-  use Behaviour
   require Logger
 
   @reconnect 5000
   @heartbeat_interval 30000
 
-  defcallback handle_close(reply :: Tuple.t, state :: map) ::
+  @callback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
               {:stop, reason :: term, state :: map}
 
@@ -58,7 +57,7 @@ defmodule PhoenixChannelClient.Socket do
   ## Callbacks
 
   def init({sender, opts}) do
-    send(self, :connect)
+    send(self(), :connect)
     adapter = opts[:adapter] || PhoenixChannelClient.Adapters.WebsocketClient
     reconnect = opts[:reconnect] || true
     opts = Keyword.put_new(opts, :headers, [])
@@ -87,9 +86,12 @@ defmodule PhoenixChannelClient.Socket do
 
   def handle_call({:channel_link, channel, topic}, _from, state) do
     channels = state.channels
-    unless Enum.any?(channels, fn({c, t})-> c == channel and t == topic end) do
-      channels = [{channel, topic} | state.channels]
-    end
+    channels =
+      if Enum.any?(channels, fn({c, t})-> c == channel and t == topic end) do
+        channels
+      else
+        [{channel, topic} | state.channels]
+      end
     {:reply, channel, %{state | channels: channels}}
   end
 
@@ -101,30 +103,28 @@ defmodule PhoenixChannelClient.Socket do
   def handle_info(:connect, %{opts: opts} = state) do
     :crypto.start
     :ssl.start
-    opts = Keyword.put(opts, :sender, self)
+    opts = Keyword.put(opts, :sender, self())
 
     Logger.debug "Url: #{inspect opts[:url]}"
 
-    case state.adapter.open(opts[:url], opts) do
-      {:ok, pid} ->
-        Logger.debug "Connected Socket: #{inspect __MODULE__}"
-        :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
-        state = %{state | socket: pid, state: :connected}
-      _ ->
-        :erlang.send_after(@reconnect, self, :connect)
-    end
+    state =
+      case state.adapter.open(opts[:url], opts) do
+        {:ok, pid} ->
+          Logger.debug "Connected Socket: #{inspect __MODULE__}"
+          :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
+          %{state | socket: pid, state: :connected}
+        _ ->
+          :erlang.send_after(@reconnect, self(), :connect)
+          state
+      end
     {:noreply, state}
   end
 
   def handle_info(:heartbeat, state) do
     ref = state.ref + 1
     send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: ref}})
-    :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
+    :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | ref: ref}}
-  end
-
-  def handle_info(:heartbeat, state) do
-    {:noreply, state}
   end
 
   # New Messages from the socket come in here
@@ -141,11 +141,11 @@ defmodule PhoenixChannelClient.Socket do
   def handle_info({:closed, reason}, state) do
     Logger.debug "Socket Closed: #{inspect reason}"
     Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
-    if state.reconnect == true, do: send(self, :connect)
+    if state.reconnect == true, do: send(self(), :connect)
     state.sender.handle_close(reason, %{state | state: :disconnected})
   end
 
-  def terminate(reason, state) do
+  def terminate(reason, _state) do
     Logger.debug("Socket terminating: #{reason}")
     :ok
   end

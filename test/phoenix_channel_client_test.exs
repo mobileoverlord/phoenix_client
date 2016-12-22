@@ -28,8 +28,8 @@ defmodule PhoenixChannelClientTest do
 
     def join(topic, message, socket) do
       Process.flag(:trap_exit, true)
-      Process.register(self, String.to_atom(topic))
-      send(self, {:after_join, message})
+      Process.register(self(), String.to_atom(topic))
+      send(self(), {:after_join, message})
       {:ok, socket}
     end
 
@@ -44,12 +44,12 @@ defmodule PhoenixChannelClientTest do
       {:noreply, socket}
     end
 
-    def handle_in(_, message, socket) do
-      {:noreply, socket}
-    end
-
     def handle_in("boom", _message, _socket) do
       raise "boom"
+    end
+
+    def handle_in(_, _message, socket) do
+      {:noreply, socket}
     end
 
     def terminate(_reason, socket) do
@@ -90,7 +90,7 @@ defmodule PhoenixChannelClientTest do
     use Phoenix.Endpoint, otp_app: :channel_app
 
     def call(conn, opts) do
-      Logger.disable(self)
+      Logger.disable(self())
       super(conn, opts)
     end
 
@@ -139,7 +139,7 @@ defmodule PhoenixChannelClientTest do
 
   setup do
     {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self)
+    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     {:ok, client_channel: channel}
   end
 
@@ -164,16 +164,8 @@ defmodule PhoenixChannelClientTest do
   test "client can push to a channel" do
     %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
-    push = ClientChannel.push("new:msg", %{test: :test})
+    ClientChannel.push("new:msg", %{test: :test})
     assert_receive {"new:msg", %{"test" => "test"}}
-  end
-
-  test "push timeouts are received" do
-    %{ref: ref} = ClientChannel.join
-    assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 500)
-    :timer.sleep(1_000)
-    assert_receive {:timeout, "foo:bar", ^ref}
   end
 
   test "push timeouts are received" do

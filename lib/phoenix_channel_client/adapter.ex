@@ -1,11 +1,10 @@
 defmodule PhoenixChannelClient.Adapter do
-  use Behaviour
 
-  defcallback open(url :: String.t, opts :: Keyword.t) ::
+  @callback open(url :: String.t, opts :: Keyword.t) ::
               {:ok, pid} |
               {:error, any}
 
-  defcallback close ::
+  @callback close(socket :: pid) ::
               {:ok, any} |
               {:error, any}
 

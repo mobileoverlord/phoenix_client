@@ -1,13 +1,12 @@
 defmodule PhoenixChannelClient do
-  use Behaviour
 
-  defcallback handle_in(event :: String.t, payload :: map, state :: map) ::
+  @callback handle_in(event :: String.t, payload :: map, state :: map) ::
               {:noreply, state :: map}
 
-  defcallback handle_reply(reply :: Tuple.t, state :: map) ::
+  @callback handle_reply(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map}
 
-  defcallback handle_close(reply :: Tuple.t, state :: map) ::
+  @callback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
               {:stop, reason :: term, state :: map}
 
@@ -59,7 +58,7 @@ defmodule PhoenixChannelClient do
     PhoenixChannelClient.Server.start_link(sender, opts)
   end
 
-  def terminate(message, state) do
+  def terminate(message, _state) do
     IO.puts "Terminate: #{inspect message}"
     :shutdown
   end
