@@ -28,7 +28,8 @@ end
 
 ```elixir
 config :my_app, MySocket,
-  url: "ws://localhost:4000/socket/websocket"
+  url: "ws://localhost:4000/socket/websocket",
+  json_module: Poison
 ```
 
 Channels function with callbacks inside a module
@@ -65,9 +66,9 @@ usage
 ```elixir
 alias Phoenix.Channel.Client
 {:ok, socket} = MySocket.start_link
-Client.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
+{:ok, channel} = Client.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
 # MyChannel.start_link(socket: MySocket, topic: "rooms:lobby")
-MyChannel.join(%{})
+MyChannel.join(channel)
 MyChannel.leave()
 
 push = MyChannel.push("new:message", %{})

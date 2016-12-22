@@ -87,10 +87,12 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def handle_call({:channel_link, channel, topic}, _from, state) do
-    channels = state.channels
-    unless Enum.any?(channels, fn({c, t})-> c == channel and t == topic end) do
-      channels = [{channel, topic} | state.channels]
-    end
+    channels = 
+      if Enum.any?(state.channels, fn({c, t})-> c == channel and t == topic end) do
+        state.channels
+      else
+        [{channel, topic} | state.channels]
+      end
     {:reply, channel, %{state | channels: channels}}
   end
 
@@ -106,12 +108,13 @@ defmodule Phoenix.Channel.Client.Socket do
     #Logger.debug "Connect Socket: #{inspect __MODULE__}"
     Logger.debug "Url: #{inspect opts[:url]}"
 
-    case state.adapter.open(opts[:url], opts) do
+    state = case state.adapter.open(opts[:url], opts) do
       {:ok, pid} ->
         :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
-        state = %{state | socket: pid, state: :connected}
+        %{state | socket: pid, state: :connected}
       _ ->
         :erlang.send_after(@reconnect, self, :connect)
+        state
     end
     {:noreply, state}
   end
@@ -129,7 +132,8 @@ defmodule Phoenix.Channel.Client.Socket do
 
   # New Messages from the socket come in here
   def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg}, %{channels: channels} = s) do
-    Enum.filter(channels, fn({channel, channel_topic}) ->
+    channels
+    |> Enum.filter(fn({channel, channel_topic}) ->
       topic == channel_topic
     end)
     |> Enum.each(fn({channel, _}) ->
