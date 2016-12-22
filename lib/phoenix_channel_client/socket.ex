@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client.Socket do
+defmodule PhoenixChannelClient.Socket do
   use Behaviour
   require Logger
 
@@ -28,10 +28,11 @@ defmodule Phoenix.Channel.Client.Socket do
     quote unquote: false do
       use GenServer
 
-      #alias Phoenix.Channel.Client.Push
+      #alias PhoenixChannelClient.Push
 
       def start_link() do
-        GenServer.start_link(Phoenix.Channel.Client.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
+        unquote(Logger.debug("Socket start_link #{__MODULE__}"))
+        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
       end
 
       def push(pid, topic, event, payload) do
@@ -57,10 +58,9 @@ defmodule Phoenix.Channel.Client.Socket do
   ## Callbacks
 
   def init({sender, opts}) do
-    IO.inspect opts
     send(self, :connect)
-    adapter = opts[:adapter] || Phoenix.Channel.Client.Adapters.WebsocketClient
-    reconnect = Keyword.get(opts, :reconnect, true)
+    adapter = opts[:adapter] || PhoenixChannelClient.Adapters.WebsocketClient
+    reconnect = opts[:reconnect] || true
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     {:ok, %{
@@ -77,8 +77,8 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
-    #Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
-    #Logger.debug "Socket State: #{inspect state}"
+    Logger.debug "Socket Push: #{inspect topic}, #{inspect event}, #{inspect payload}"
+    Logger.debug "Socket State: #{inspect state}"
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
     send(socket, {:send, push})
@@ -86,12 +86,10 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   def handle_call({:channel_link, channel, topic}, _from, state) do
-    channels = 
-      if Enum.any?(state.channels, fn({c, t})-> c == channel and t == topic end) do
-        state.channels
-      else
-        [{channel, topic} | state.channels]
-      end
+    channels = state.channels
+    unless Enum.any?(channels, fn({c, t})-> c == channel and t == topic end) do
+      channels = [{channel, topic} | state.channels]
+    end
     {:reply, channel, %{state | channels: channels}}
   end
 
@@ -104,23 +102,23 @@ defmodule Phoenix.Channel.Client.Socket do
     :crypto.start
     :ssl.start
     opts = Keyword.put(opts, :sender, self)
-    #Logger.debug "Connect Socket: #{inspect __MODULE__}"
+
     Logger.debug "Url: #{inspect opts[:url]}"
 
-    state = case state.adapter.open(opts[:url], opts) do
+    case state.adapter.open(opts[:url], opts) do
       {:ok, pid} ->
+        Logger.debug "Connected Socket: #{inspect __MODULE__}"
         :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
-        %{state | socket: pid, state: :connected}
+        state = %{state | socket: pid, state: :connected}
       _ ->
         :erlang.send_after(@reconnect, self, :connect)
-        state
     end
     {:noreply, state}
   end
 
-  def handle_info(:heartbeat, %{state: connected} = state) do
+  def handle_info(:heartbeat, state) do
     ref = state.ref + 1
-    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: to_string(ref)}})
+    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: ref}})
     :erlang.send_after(state.heartbeat_interval, self, :heartbeat)
     {:noreply, %{state | ref: ref}}
   end
@@ -130,27 +128,26 @@ defmodule Phoenix.Channel.Client.Socket do
   end
 
   # New Messages from the socket come in here
-  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref} = msg}, %{channels: channels} = s) do
-    channels
-    |> Enum.filter(fn({channel, channel_topic}) ->
+  def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}}, %{channels: channels} = state) do
+    Enum.filter(channels, fn({_channel, channel_topic}) ->
       topic == channel_topic
     end)
     |> Enum.each(fn({channel, _}) ->
       send(channel, {:trigger, event, payload, ref})
     end)
-    {:noreply, s}
+    {:noreply, state}
   end
 
   def handle_info({:closed, reason}, state) do
     Logger.debug "Socket Closed: #{inspect reason}"
-    Enum.each(state.channels, fn({pid, _})-> send(pid, {:trigger, :phx_error, reason, state.ref}) end)
+    Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
     if state.reconnect == true, do: send(self, :connect)
     state.sender.handle_close(reason, %{state | state: :disconnected})
   end
 
-  def terminate(_, state) do
-    IO.inspect "Socket Terminated"
-    {:shutdown, :normal}
+  def terminate(reason, state) do
+    Logger.debug("Socket terminating: #{reason}")
+    :ok
   end
 
 end

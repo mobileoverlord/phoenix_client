@@ -1,11 +1,11 @@
-defmodule Phoenix.Channel.Client.Server do
+defmodule PhoenixChannelClient.Server do
   use GenServer
   require Logger
 
   @default_timeout 5_000
 
   def start_link(sender, opts) do
-    GenServer.start_link(__MODULE__, {sender, opts})
+    GenServer.start_link(__MODULE__, {sender, opts}, name: sender)
   end
 
   def join(pid, params \\ %{}, opts \\ []) do

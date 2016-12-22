@@ -1,4 +1,4 @@
-defmodule Phoenix.Channel.Client do
+defmodule PhoenixChannelClient do
   use Behaviour
 
   defcallback handle_in(event :: String.t, payload :: map, state :: map) ::
@@ -13,24 +13,28 @@ defmodule Phoenix.Channel.Client do
 
   defmacro __using__(_opts) do
     quote do
-      alias Phoenix.Channel.Client.Server
+      alias PhoenixChannelClient.Server
 
       @behaviour unquote(__MODULE__)
 
-      def join(pid, params \\ %{}) do
-        Server.join(pid, params)
+      def start_link(opts) do
+        Server.start_link(__MODULE__, opts)
       end
 
-      def leave(pid) do
-        Server.leave(pid)
+      def join(params \\ %{}) do
+        Server.join(__MODULE__, params)
       end
 
-      def cancel_push(pid, push_ref) do
-        Server.cancel_push(pid, push_ref)
+      def leave do
+        Server.leave(__MODULE__)
       end
 
-      def push(pid, event, payload, opts \\ []) do
-        Server.push(pid, event, payload, opts)
+      def cancel_push(push_ref) do
+        Server.cancel_push(__MODULE__, push_ref)
+      end
+
+      def push(event, payload, opts \\ []) do
+        Server.push(__MODULE__, event, payload, opts)
       end
 
       def handle_in(event, payload, state) do
@@ -52,7 +56,7 @@ defmodule Phoenix.Channel.Client do
   end
 
   def channel(sender, opts) do
-    Phoenix.Channel.Client.Server.start_link(sender, opts)
+    PhoenixChannelClient.Server.start_link(sender, opts)
   end
 
   def terminate(message, state) do
