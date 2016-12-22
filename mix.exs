@@ -39,7 +39,7 @@ defmodule PhoenixChannelClient.Mixfile do
 
   defp description do
     """
-    Nerves - Create firmware for embedded devices like Raspberry Pi, BeagleBone Black, and more
+    Connect to Phoenix Channels from Elixir
     """
   end
 
