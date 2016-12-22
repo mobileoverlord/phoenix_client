@@ -1,7 +1,6 @@
 defmodule PhoenixChannelClient.Socket do
   require Logger
 
-  @reconnect 5000
   @heartbeat_interval 30000
 
   @callback handle_close(reply :: Tuple.t, state :: map) ::
@@ -61,7 +60,7 @@ defmodule PhoenixChannelClient.Socket do
 
     :crypto.start
     :ssl.start
-    reconnect = opts[:reconnect] || true
+    reconnect = Keyword.get(opts, :reconnect, true)
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     ws_opts = Keyword.put(opts, :sender, self())
@@ -84,7 +83,7 @@ defmodule PhoenixChannelClient.Socket do
     }}
   end
 
-  def handle_call({:push, topic, event, payload}, _from, %{socket: socket} = state) do
+  def handle_call({:push, topic, event, payload}, _from, state) do
     ref = state.ref + 1
     push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
     send(self(), :flush)

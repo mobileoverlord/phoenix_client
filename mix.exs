@@ -7,6 +7,8 @@ defmodule PhoenixChannelClient.Mixfile do
      elixir: "~> 1.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: description(),
+     package: package(),
      deps: deps()]
   end
 
@@ -33,5 +35,17 @@ defmodule PhoenixChannelClient.Mixfile do
       {:poison, "~> 2.0", only: :test},
       {:cowboy, "~> 1.0", only: :test}
     ]
+  end
+
+  defp description do
+    """
+    Nerves - Create firmware for embedded devices like Raspberry Pi, BeagleBone Black, and more
+    """
+  end
+
+  defp package do
+    [maintainers: ["Justin Schneck"],
+     licenses: ["Apache 2.0"],
+     links: %{"Github" => "https://github.com/mobileoverlord/phoenix_channel_client"}]
   end
 end
