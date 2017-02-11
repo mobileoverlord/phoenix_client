@@ -42,14 +42,14 @@ defmodule MyChannel do
   def handle_reply({:ok, "new_msg", resp, _ref}, state) do
     {:noreply, state}
   end
-  def handle_reply({:error, "new_msg", resp, _ref} state) do
+  def handle_reply({:error, "new_msg", resp, _ref}, state) do
     {:noreply, state}
   end
-  def handle_reply({:timeout, "new_msg", _ref} state) do
+  def handle_reply({:timeout, "new_msg", _ref}, state) do
     {:noreply, state}
   end
 
-  def handle_reply({:timeout, :join, _ref} state) do
+  def handle_reply({:timeout, :join, _ref}, state) do
     {:noreply, state}
   end
 
@@ -64,8 +64,8 @@ usage
 ```elixir
 {:ok, socket} = MySocket.start_link
 {:ok, channel} = PhoenixChannelClient.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
-MyChannel.join(channel, %{})
-MyChannel.leave(channel)
+MyChannel.join(%{})
+MyChannel.leave()
 
 push = MyChannel.push("new:message", %{})
 MyChannel.cancel_push(push)
