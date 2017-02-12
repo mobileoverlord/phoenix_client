@@ -32,6 +32,11 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
     send state.sender, {:closed, :normal, self()}
     {:ok, state}
   end
+  def ondisconnect({:error, :econnrefused}, state) do
+    Logger.debug "Websocket Connection Refused"
+    send state.sender, {:closed, :normal, self()}
+    {:ok, state}
+  end
 
   @doc """
   Receives JSON encoded Socket.Message from remote WS endpoint and
