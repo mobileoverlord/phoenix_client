@@ -53,12 +53,12 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def websocket_info(:close, _conn_state, state) do
-    send state.sender, {:closed, :normal}
+    send state.sender, {:closed, :normal, self()}
     {:close, <<>>, "done"}
   end
 
   def websocket_terminate(reason, _conn_state, state) do
-    send state.sender, {:closed, reason}
+    send state.sender, {:closed, reason, self()}
     :ok
   end
 end
