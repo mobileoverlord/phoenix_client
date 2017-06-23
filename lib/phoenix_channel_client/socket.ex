@@ -162,9 +162,9 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, state}
   end
 
-  def handle_info(:connect, status) do
-    {:ok, pid} = status[:adapter].open(status[:url], status[:ws_opts][:url])
-    {:noreply, %{status| socket: pid}}
+  def handle_info(:connect, state) do
+    {:ok, pid} = state[:adapter].open(state[:url], state[:ws_opts][:url])
+    {:noreply, %{state| socket: pid}}
   end
 
   def terminate(reason, _state) do
