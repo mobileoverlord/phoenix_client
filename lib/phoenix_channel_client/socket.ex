@@ -1,7 +1,8 @@
 defmodule PhoenixChannelClient.Socket do
   require Logger
 
-  @heartbeat_interval 30000
+  @heartbeat_interval 30_000
+  @reconnect_interval 60_000
 
   @callback handle_close(reply :: Tuple.t, state :: map) ::
               {:noreply, state :: map} |
@@ -63,6 +64,7 @@ defmodule PhoenixChannelClient.Socket do
     reconnect = Keyword.get(opts, :reconnect, true)
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
+    reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
     ws_opts = Keyword.put(opts, :sender, self())
     {:ok, pid} = adapter.open(ws_opts[:url], ws_opts)
 
@@ -76,9 +78,11 @@ defmodule PhoenixChannelClient.Socket do
       reconnect: reconnect,
       reconnect_timer: nil,
       heartbeat_interval: heartbeat_interval,
+      reconnect_interval: reconnect_interval,
       status: :disconnected,
       adapter: adapter,
       queue: :queue.new(),
+      ws_opts: ws_opts,
       ref: 0
     }}
   end
@@ -134,7 +138,9 @@ defmodule PhoenixChannelClient.Socket do
   def handle_info({:closed, reason, socket}, %{socket: socket} = state) do
     Logger.debug "Socket Closed: #{inspect reason}"
     Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
-    if state.reconnect == true, do: send(self(), :connect)
+    if state.reconnect == true do
+      :erlang.send_after(state[:reconnect_interval], self(), :connect)
+    end
     state.sender.handle_close(reason, %{state | status: :disconnected})
   end
 
@@ -154,6 +160,11 @@ defmodule PhoenixChannelClient.Socket do
   def handle_info(:flush, state) do
     :erlang.send_after(100, self(), :flush)
     {:noreply, state}
+  end
+
+  def handle_info(:connect, status) do
+    {:ok, pid} = status[:adapter].open(status[:url], status[:ws_opts][:url])
+    {:noreply, %{status| socket: pid}}
   end
 
   def terminate(reason, _state) do
