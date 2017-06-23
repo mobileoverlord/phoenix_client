@@ -157,8 +157,7 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def terminate(reason, _state) do
-    Logger.debug("Socket terminating: #{reason}")
+    Logger.debug("Socket terminating: #{inspect reason}")
     :ok
   end
-
 end
