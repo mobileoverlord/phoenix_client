@@ -137,7 +137,7 @@ defmodule PhoenixChannelClient.Socket do
 
   def handle_info({:closed, reason, socket}, %{socket: socket} = state) do
     Logger.debug "Socket Closed: #{inspect reason}"
-    Enum.each(state.channels, fn(channel)-> send(channel, {:trigger, :phx_error}) end)
+    Enum.each(state.channels, fn({pid, _channel})-> send(pid, {:trigger, "phx_error", :closed, nil}) end)
     if state.reconnect == true do
       :erlang.send_after(state[:reconnect_interval], self(), :connect)
     end
