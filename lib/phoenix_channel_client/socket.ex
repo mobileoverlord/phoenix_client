@@ -163,7 +163,7 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_info(:connect, state) do
-    {:ok, pid} = state[:adapter].open(state[:url], state[:ws_opts][:url])
+    {:ok, pid} = state[:adapter].open(state[:ws_opts][:url], state[:ws_opts])
     {:noreply, %{state| socket: pid}}
   end
 
