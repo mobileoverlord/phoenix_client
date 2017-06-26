@@ -39,6 +39,12 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
     {:ok, state}
   end
 
+  def ondisconnect({:error, :nxdomain}, state) do
+    Logger.debug "Websocket with non-existent domain"
+    send state.sender, {:closed, :nxdomain, self()}
+    {:ok, state}
+  end
+
   @doc """
   Receives JSON encoded Socket.Message from remote WS endpoint and
   forwards message to client sender process
