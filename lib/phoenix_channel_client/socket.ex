@@ -11,15 +11,8 @@ defmodule PhoenixChannelClient.Socket do
   defmacro __using__(opts) do
     quote do
       require Logger
-      unquote(config(opts))
+      @otp_app unquote(opts)[:otp_app]
       unquote(socket())
-    end
-  end
-
-  defp config(opts) do
-    quote do
-      var!(otp_app) = unquote(opts)[:otp_app] || raise "socket expects :otp_app to be given"
-      var!(config) = Application.get_env(var!(otp_app), __MODULE__)
     end
   end
 
@@ -31,7 +24,8 @@ defmodule PhoenixChannelClient.Socket do
 
       def start_link() do
         unquote(Logger.debug("Socket start_link #{__MODULE__}"))
-        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), unquote(var!(config))}, name: __MODULE__)
+        config = Application.get_env(@otp_app, __MODULE__)
+        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), config}, name: __MODULE__)
       end
 
       def push(pid, topic, event, payload) do
