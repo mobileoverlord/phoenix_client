@@ -5,7 +5,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
 
   def open(url, opts) do
     Logger.debug "Called Open"
-    :websocket_client.start_link(String.to_char_list(url), __MODULE__, opts, extra_headers: opts[:headers])
+    :websocket_client.start_link(String.to_charlist(url), __MODULE__, opts, extra_headers: opts[:headers])
   end
 
   def close(socket) do
