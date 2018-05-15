@@ -11,7 +11,7 @@ defmodule PhoenixChannelClient.Socket do
   defmacro __using__(opts) do
     quote do
       require Logger
-      @otp_app unquote(opts)[:otp_app]
+      @otp_app Keyword.get(unquote(opts), :otp_app)
       unquote(socket())
     end
   end
@@ -22,10 +22,14 @@ defmodule PhoenixChannelClient.Socket do
 
       #alias PhoenixChannelClient.Push
 
-      def start_link() do
+      def start_link(opts \\ []) do
         Logger.debug("Socket start_link #{unquote(__MODULE__)}")
-        config = Application.get_env(@otp_app, __MODULE__)
-        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), config}, name: __MODULE__)
+
+        opts = 
+          Application.get_env(@otp_app, __MODULE__, [])
+          |> Keyword.merge(opts)
+
+        GenServer.start_link(PhoenixChannelClient.Socket, {unquote(__MODULE__), opts}, name: __MODULE__)
       end
 
       def push(pid, topic, event, payload) do
@@ -44,6 +48,10 @@ defmodule PhoenixChannelClient.Socket do
         {:noreply, state}
       end
 
+      def init(opts) do
+        {:ok, opts}
+      end
+
       defoverridable handle_close: 2
     end
   end
@@ -56,18 +64,20 @@ defmodule PhoenixChannelClient.Socket do
     :crypto.start
     :ssl.start
     reconnect = Keyword.get(opts, :reconnect, true)
+    url = Keyword.get(opts, :url, "")
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
-    ws_opts = Keyword.put(opts, :sender, self())
-    {:ok, pid} = adapter.open(ws_opts[:url], ws_opts)
+    adapter_opts = Keyword.put(opts, :sender, self())
 
-
+    send(self(), :connect)
 
     {:ok, %{
       sender: sender,
       opts: opts,
-      socket: pid,
+      url: url,
+      params: Keyword.get(opts, :params, %{}),
+      socket: nil,
       channels: [],
       reconnect: reconnect,
       reconnect_timer: nil,
@@ -75,8 +85,8 @@ defmodule PhoenixChannelClient.Socket do
       reconnect_interval: reconnect_interval,
       status: :disconnected,
       adapter: adapter,
+      adapter_opts: adapter_opts,
       queue: :queue.new(),
-      ws_opts: ws_opts,
       ref: 0
     }}
   end
@@ -157,7 +167,12 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_info(:connect, state) do
-    {:ok, pid} = state[:adapter].open(state[:ws_opts][:url], state[:ws_opts])
+    url = 
+      URI.parse(state.url)
+      |> Map.put(:query, URI.encode_query(state.params))
+      |> to_string
+
+    {:ok, pid} = state[:adapter].open(url, state[:adapter_opts])
     {:noreply, %{state| socket: pid}}
   end
 

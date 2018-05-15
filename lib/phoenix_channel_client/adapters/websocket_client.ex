@@ -3,9 +3,10 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
 
   require Logger
 
-  def open(url, opts) do
+  def open(url, adapter_opts) do
     Logger.debug "Called Open"
-    :websocket_client.start_link(String.to_charlist(url), __MODULE__, opts, extra_headers: opts[:headers])
+    Logger.debug "URL: #{inspect url}"
+    :websocket_client.start_link(String.to_charlist(url), __MODULE__, adapter_opts, adapter_opts)
   end
 
   def close(socket) do
@@ -28,20 +29,14 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def ondisconnect({:remote, :closed}, state) do
-    Logger.debug "Websocket Disconnected"
+    Logger.debug "Websocket closed"
     send state.sender, {:closed, :normal, self()}
     {:ok, state}
   end
 
-  def ondisconnect({:error, :econnrefused}, state) do
-    Logger.debug "Websocket Connection Refused"
-    send state.sender, {:closed, :econnrefused, self()}
-    {:ok, state}
-  end
-
-  def ondisconnect({:error, :nxdomain}, state) do
-    Logger.debug "Websocket with non-existent domain"
-    send state.sender, {:closed, :nxdomain, self()}
+  def ondisconnect({:error, reason}, state) do
+    Logger.debug "Websocket abnormally stopped: #{inspect reason}"
+    send state.sender, {:closed, reason, self()}
     {:ok, state}
   end
 

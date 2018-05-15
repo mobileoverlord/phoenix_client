@@ -70,7 +70,7 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_call({:cancel_push, push_ref}, _from, %{pushes: pushes} = state) do
-    {[{timer, _}], pushes} = Enum.partition(pushes, fn({_, %{ref: ref}}) ->
+    {[{timer, _}], pushes} = Enum.split_with(pushes, fn({_, %{ref: ref}}) ->
       ref == push_ref
     end)
     :erlang.cancel_timer(timer)
@@ -93,7 +93,7 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_info({:trigger, "phx_reply", %{"response" => response, "status" => status}, ref}, state) do
-    case Enum.partition(state.pushes, fn({_, push}) -> push.ref == ref end) do
+    case Enum.split_with(state.pushes, fn({_, push}) -> push.ref == ref end) do
       {[{timer_ref, push}], pushes} ->
         :erlang.cancel_timer(timer_ref)
         state.sender.handle_reply({String.to_atom(status), push.topic, response, ref}, %{state | pushes: pushes})
@@ -123,7 +123,7 @@ defmodule PhoenixChannelClient.Server do
   def handle_info({:timeout, timer, _push}, %{pushes: pushes} = state) do
     Logger.error "Timer Expired for Push: #{inspect pushes}"
     partition =
-      Enum.partition(pushes, fn({ref, _}) ->
+      Enum.split_with(pushes, fn({ref, _}) ->
         ref == timer
       end)
 

@@ -18,10 +18,10 @@ defmodule PhoenixChannelClientTest do
     pubsub: [adapter: Phoenix.PubSub.PG2, name: :int_pub]
   ])
 
-  Application.put_env(:channel_client, ClientSocket, [
+  @socket_config [
     url: "ws://127.0.0.1:#{@port}/ws/admin/websocket",
     serializer: Jason
-  ])
+  ]
 
   defmodule RoomChannel do
     use Phoenix.Channel
@@ -76,6 +76,7 @@ defmodule PhoenixChannelClientTest do
       origins: ["//example.com"]
 
     def connect(%{"reject" => "true"}, _socket) do
+      IO.inspect "rejected"
       :error
     end
     def connect(params, socket) do
@@ -113,7 +114,12 @@ defmodule PhoenixChannelClientTest do
   end
 
   defmodule ClientSocket do
-    use PhoenixChannelClient.Socket, otp_app: :channel_client
+    use PhoenixChannelClient.Socket
+
+    def handle_close(reason, state) do
+      send(state.opts[:caller], {:socket_closed, reason})
+      {:noreply, state}
+    end
   end
 
   defmodule ClientChannel do
@@ -138,26 +144,23 @@ defmodule PhoenixChannelClientTest do
 
   require Logger
 
-  setup do
-    {:ok, _} = ClientSocket.start_link()
-    {:ok, channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
-    {:ok, client_channel: channel}
-  end
-
   setup_all do
-    Endpoint.start_link()
-    #capture_log fn -> Endpoint.start_link() end
+    #Endpoint.start_link()
+    capture_log fn -> Endpoint.start_link() end
     :ok
   end
 
   test "socket can join a channel" do
+    {:ok, _} = ClientSocket.start_link(@socket_config)
+    {:ok, _channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
   end
 
   test "socket can leave a channel" do
+    {:ok, _} = ClientSocket.start_link(@socket_config)
+    {:ok, _channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     %{ref: ref} = ClientChannel.join
-    IO.inspect ref
     assert_receive {:ok, :join, _, ^ref}
     ClientChannel.leave
     assert_receive {"you:left", %{"message" => "bye!"}}
@@ -165,6 +168,8 @@ defmodule PhoenixChannelClientTest do
   end
 
   test "client can push to a channel" do
+    {:ok, _} = ClientSocket.start_link(@socket_config)
+    {:ok, _channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
     ClientChannel.push("new:msg", %{test: :test})
@@ -172,6 +177,8 @@ defmodule PhoenixChannelClientTest do
   end
 
   test "push timeouts are received" do
+    {:ok, _} = ClientSocket.start_link(@socket_config)
+    {:ok, _channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
     %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 500)
@@ -180,10 +187,24 @@ defmodule PhoenixChannelClientTest do
   end
 
   test "push timeouts are able to be canceled" do
+    {:ok, _} = ClientSocket.start_link(@socket_config)
+    {:ok, _channel} = ClientChannel.start_link(socket: ClientSocket, topic: "rooms:admin-lobby", caller: self())
     %{ref: ref} = ClientChannel.join
     assert_receive {:ok, :join, _, ^ref}
     %{ref: ref} = ClientChannel.push("foo:bar", %{}, timeout: 100)
     ClientChannel.cancel_push(ref)
     refute_receive {:timeout, "foo:bar", ^ref}, 200
   end
+
+  test "socket params can be sent" do
+    opts = 
+      @socket_config
+      |> Keyword.put(:params, %{"reject" => true})
+      |> Keyword.put(:caller, self())
+
+    {:ok, _} = ClientSocket.start_link(opts)
+    assert_receive {:socket_closed, _reason}
+  end
+
+
 end
