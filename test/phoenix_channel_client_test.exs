@@ -2,7 +2,7 @@ defmodule PhoenixChannelClientTest do
   use ExUnit.Case, async: false
   use RouterHelper
   import ExUnit.CaptureLog
-  import Plug.Conn, except: [assign: 3]
+  import Plug.Conn, except: [assign: 3, push: 3]
 
   alias __MODULE__.Endpoint
   alias __MODULE__.ClientSocket
@@ -20,7 +20,7 @@ defmodule PhoenixChannelClientTest do
 
   Application.put_env(:channel_client, ClientSocket, [
     url: "ws://127.0.0.1:#{@port}/ws/admin/websocket",
-    serializer: Poison
+    serializer: Jason
   ])
 
   defmodule RoomChannel do
@@ -101,7 +101,7 @@ defmodule PhoenixChannelClientTest do
     plug Plug.Parsers,
       parsers: [:urlencoded, :json],
       pass: "*/*",
-      json_decoder: Poison
+      json_decoder: Jason
 
     plug Plug.Session,
       store: :cookie,
