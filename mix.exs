@@ -3,7 +3,7 @@ defmodule PhoenixChannelClient.Mixfile do
 
   def project do
     [app: :phoenix_channel_client,
-     version: "0.2.0",
+     version: "0.3.0-dev",
      elixir: "~> 1.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -30,9 +30,9 @@ defmodule PhoenixChannelClient.Mixfile do
   # Type `mix help deps` for more examples and options
   defp deps do
     [
-      {:websocket_client, "~> 1.0"},
-      {:phoenix, github: "phoenixframework/phoenix", only: :test},
-      {:poison, "~> 2.0", only: :test},
+      {:websocket_client, "~> 1.3"},
+      {:phoenix, github: "phoenixframework/phoenix", tag: "v1.3.2", only: :test},
+      {:jason, "~> 1.0", only: :test},
       {:cowboy, "~> 1.0", only: :test}
     ]
   end
