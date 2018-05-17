@@ -50,6 +50,16 @@ defmodule PhoenixChannelClient do
         {:noreply, state}
       end
 
+      def child_spec(opts) do
+        %{
+          id: __MODULE__,
+          start: {__MODULE__, :start_link, [opts]},
+          type: :worker,
+          restart: :permanent,
+          shutdown: 500
+        }
+      end
+
       defoverridable handle_in: 3, handle_reply: 2, handle_close: 2
     end
   end
