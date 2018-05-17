@@ -120,11 +120,15 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, %{state | status: :connected}}
   end
 
-  def handle_info(:heartbeat, state) do
+  def handle_info(:heartbeat, %{status: :connected} = state) do
     ref = state.ref + 1
     send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: ref}})
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | ref: ref}}
+  end
+
+  def handle_info(:heartbeat, state) do
+    {:noreply, state}
   end
 
   # New Messages from the socket come in here
