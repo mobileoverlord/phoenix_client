@@ -1,11 +1,9 @@
 defmodule PhoenixChannelClient.Adapter do
-
-  @callback open(url :: String.t, opts :: Keyword.t) ::
-              {:ok, pid} |
-              {:error, any}
+  @callback open(url :: String.t(), opts :: Keyword.t()) ::
+              {:ok, pid}
+              | {:error, any}
 
   @callback close(socket :: pid) ::
-              {:ok, any} |
-              {:error, any}
-
+              {:ok, any}
+              | {:error, any}
 end

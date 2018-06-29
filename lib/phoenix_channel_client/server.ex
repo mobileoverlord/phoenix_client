@@ -9,7 +9,7 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def join(pid, params \\ %{}, opts \\ []) do
-    timeout =  opts[:timeout] || @default_timeout
+    timeout = opts[:timeout] || @default_timeout
     GenServer.call(pid, {:join, params, timeout})
   end
 
@@ -22,7 +22,7 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def push(pid, event, payload, opts \\ []) do
-    timeout =  opts[:timeout] || @default_timeout
+    timeout = opts[:timeout] || @default_timeout
     GenServer.call(pid, {:push, event, payload, timeout})
   end
 
@@ -30,17 +30,19 @@ defmodule PhoenixChannelClient.Server do
     socket = opts[:socket]
     topic = opts[:topic]
     socket.channel_link(socket, self(), topic)
-    {:ok, %{
-      sender: sender,
-      socket: socket,
-      topic: topic,
-      join_push: nil,
-      join_timer: nil,
-      leave_push: nil,
-      pushes: [],
-      opts: opts,
-      state: :closed
-    }}
+
+    {:ok,
+     %{
+       sender: sender,
+       socket: socket,
+       topic: topic,
+       join_push: nil,
+       join_timer: nil,
+       leave_push: nil,
+       pushes: [],
+       opts: opts,
+       state: :closed
+     }}
   end
 
   def handle_call({:join, params, timeout}, _from, %{socket: socket} = state) do
@@ -51,12 +53,15 @@ defmodule PhoenixChannelClient.Server do
 
   def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
     push = socket.push(socket, state.topic, "phx_leave", %{})
-    chan_state = if opts[:brutal] == true do
-      socket.channel_unlink(socket, self(), state.topic)
-      :closed
-    else
-      :closing
-    end
+
+    chan_state =
+      if opts[:brutal] == true do
+        socket.channel_unlink(socket, self(), state.topic)
+        :closed
+      else
+        :closing
+      end
+
     {:reply, :ok, %{state | state: chan_state, leave_push: push}}
   end
 
@@ -67,9 +72,11 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_call({:cancel_push, push_ref}, _from, %{pushes: pushes} = state) do
-    {[{timer, _}], pushes} = Enum.split_with(pushes, fn({_, %{ref: ref}}) ->
-      ref == push_ref
-    end)
+    {[{timer, _}], pushes} =
+      Enum.split_with(pushes, fn {_, %{ref: ref}} ->
+        ref == push_ref
+      end)
+
     :erlang.cancel_timer(timer)
     {:reply, :ok, %{state | pushes: pushes}}
   end
@@ -83,16 +90,32 @@ defmodule PhoenixChannelClient.Server do
     state.sender.handle_close({:closed, reason}, %{state | state: :closed})
   end
 
-  def handle_info({:trigger, "phx_reply", %{"status" => status} = payload, ref}, %{join_push: %{ref: join_ref}} = state) when ref == join_ref do
+  def handle_info(
+        {:trigger, "phx_reply", %{"status" => status} = payload, ref},
+        %{join_push: %{ref: join_ref}} = state
+      )
+      when ref == join_ref do
     :erlang.cancel_timer(state.join_timer)
-    state.sender.handle_reply({String.to_atom(status), :join, payload, ref}, %{state | state: :joined})
+
+    state.sender.handle_reply({String.to_atom(status), :join, payload, ref}, %{
+      state
+      | state: :joined
+    })
   end
 
-  def handle_info({:trigger, "phx_reply", %{"response" => response, "status" => status}, ref}, state) do
-    case Enum.split_with(state.pushes, fn({_, push}) -> push.ref == ref end) do
+  def handle_info(
+        {:trigger, "phx_reply", %{"response" => response, "status" => status}, ref},
+        state
+      ) do
+    case Enum.split_with(state.pushes, fn {_, push} -> push.ref == ref end) do
       {[{timer_ref, push}], pushes} ->
         :erlang.cancel_timer(timer_ref)
-        state.sender.handle_reply({String.to_atom(status), push.topic, response, ref}, %{state | pushes: pushes})
+
+        state.sender.handle_reply({String.to_atom(status), push.topic, response, ref}, %{
+          state
+          | pushes: pushes
+        })
+
       {[], []} ->
         {:noreply, state}
     end
@@ -113,17 +136,19 @@ defmodule PhoenixChannelClient.Server do
   def handle_info({:timeout, _timer, push}, %{join_push: push} = state) do
     state.sender.handle_reply({:timeout, :join}, state)
   end
+
   def handle_info({:timeout, timer, _push}, %{pushes: pushes} = state) do
     partition =
-      Enum.split_with(pushes, fn({ref, _}) ->
+      Enum.split_with(pushes, fn {ref, _} ->
         ref == timer
       end)
 
     case partition do
       {[{_, push}], pushes} ->
         state.sender.handle_reply({:timeout, push.event, push.ref}, %{state | pushes: pushes})
-      _ -> {:noreply, state}
+
+      _ ->
+        {:noreply, state}
     end
   end
-
 end

@@ -8,29 +8,30 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def close(socket) do
-    send socket, :close
+    send(socket, :close)
   end
 
   def init(opts) do
-    {:once, %{
-      opts: opts,
-      serializer: opts[:serializer],
-      sender: opts[:sender]
-    }}
+    {:once,
+     %{
+       opts: opts,
+       serializer: opts[:serializer],
+       sender: opts[:sender]
+     }}
   end
 
   def onconnect(_, state) do
-    send state.sender, {:connected, self()}
+    send(state.sender, {:connected, self()})
     {:ok, state}
   end
 
   def ondisconnect({:remote, :closed}, state) do
-    send state.sender, {:closed, :normal, self()}
+    send(state.sender, {:closed, :normal, self()})
     {:ok, state}
   end
 
   def ondisconnect({:error, reason}, state) do
-    send state.sender, {:closed, reason, self()}
+    send(state.sender, {:closed, reason, self()})
     {:ok, state}
   end
 
@@ -39,7 +40,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
-    send state.sender, {:receive, state.serializer.decode!(msg)}
+    send(state.sender, {:receive, state.serializer.decode!(msg)})
     {:ok, state}
   end
 
@@ -51,12 +52,12 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def websocket_info(:close, _conn_state, state) do
-    send state.sender, {:closed, :normal, self()}
+    send(state.sender, {:closed, :normal, self()})
     {:close, <<>>, "done"}
   end
 
   def websocket_terminate(reason, _conn_state, state) do
-    send state.sender, {:closed, reason, self()}
+    send(state.sender, {:closed, reason, self()})
     :ok
   end
 end

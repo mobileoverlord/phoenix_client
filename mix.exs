@@ -2,14 +2,16 @@ defmodule PhoenixChannelClient.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :phoenix_channel_client,
-     version: "0.3.0-dev",
-     elixir: "~> 1.0",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     description: description(),
-     package: package(),
-     deps: deps()]
+    [
+      app: :phoenix_channel_client,
+      version: "0.3.0-dev",
+      elixir: "~> 1.0",
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      description: description(),
+      package: package(),
+      deps: deps()
+    ]
   end
 
   # Configuration for the OTP application
@@ -44,8 +46,10 @@ defmodule PhoenixChannelClient.Mixfile do
   end
 
   defp package do
-    [maintainers: ["Justin Schneck"],
-     licenses: ["Apache 2.0"],
-     links: %{"Github" => "https://github.com/mobileoverlord/phoenix_channel_client"}]
+    [
+      maintainers: ["Justin Schneck"],
+      licenses: ["Apache 2.0"],
+      links: %{"Github" => "https://github.com/mobileoverlord/phoenix_channel_client"}
+    ]
   end
 end
