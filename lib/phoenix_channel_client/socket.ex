@@ -23,8 +23,6 @@ defmodule PhoenixChannelClient.Socket do
       #alias PhoenixChannelClient.Push
 
       def start_link(opts \\ []) do
-        Logger.debug("Socket start_link #{unquote(__MODULE__)}")
-
         opts = 
           Application.get_env(@otp_app, __MODULE__, [])
           |> Keyword.merge(opts)
@@ -115,7 +113,6 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_info({:connected, socket}, %{socket: socket} = state) do
-    Logger.debug "Connected Socket: #{inspect __MODULE__}"
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | status: :connected}}
   end
@@ -133,7 +130,6 @@ defmodule PhoenixChannelClient.Socket do
 
   # New Messages from the socket come in here
   def handle_info({:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}} = msg, %{channels: channels} = state) do
-    Logger.debug "Socket Received: #{inspect msg}"
     Enum.filter(channels, fn({_channel, channel_topic}) ->
       topic == channel_topic
     end)
@@ -144,7 +140,6 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_info({:closed, reason, socket}, %{socket: socket} = state) do
-    Logger.debug "Socket Closed: #{inspect reason}"
     Enum.each(state.channels, fn({pid, _channel})-> send(pid, {:trigger, "phx_error", :closed, nil}) end)
     if state.reconnect == true do
       :erlang.send_after(state[:reconnect_interval], self(), :connect)
@@ -157,7 +152,6 @@ defmodule PhoenixChannelClient.Socket do
       case :queue.out(state.queue) do
         {:empty, _queue} -> state
         {{:value, push}, queue} ->
-          Logger.debug "Socket Push: #{inspect push}"
           send(state.socket, {:send, push})
           :erlang.send_after(100, self(), :flush)
           %{state | queue: queue}
@@ -181,7 +175,6 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def terminate(reason, _state) do
-    Logger.debug("Socket terminating: #{inspect reason}")
     :ok
   end
 end

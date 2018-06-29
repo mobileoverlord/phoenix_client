@@ -4,8 +4,6 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   require Logger
 
   def open(url, adapter_opts) do
-    Logger.debug "Called Open"
-    Logger.debug "URL: #{inspect url}"
     :websocket_client.start_link(String.to_charlist(url), __MODULE__, adapter_opts, adapter_opts)
   end
 
@@ -14,7 +12,6 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def init(opts) do
-    Logger.debug "WS Init"
     {:once, %{
       opts: opts,
       serializer: opts[:serializer],
@@ -23,19 +20,16 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def onconnect(_, state) do
-    Logger.debug "Websocket Connected"
     send state.sender, {:connected, self()}
     {:ok, state}
   end
 
   def ondisconnect({:remote, :closed}, state) do
-    Logger.debug "Websocket closed"
     send state.sender, {:closed, :normal, self()}
     {:ok, state}
   end
 
   def ondisconnect({:error, reason}, state) do
-    Logger.debug "Websocket abnormally stopped: #{inspect reason}"
     send state.sender, {:closed, reason, self()}
     {:ok, state}
   end
@@ -45,7 +39,6 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
-    Logger.debug "Handle in: #{inspect msg}"
     send state.sender, {:receive, state.serializer.decode!(msg)}
     {:ok, state}
   end
@@ -54,8 +47,6 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
   def websocket_info({:send, msg}, conn_state, state) do
-    Logger.debug "Handle out: #{inspect msg}"
-    Logger.debug "Socket State: #{inspect conn_state}"
     {:reply, {:text, state.serializer.encode!(msg)}, state}
   end
 

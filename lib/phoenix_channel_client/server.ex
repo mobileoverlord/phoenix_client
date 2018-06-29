@@ -9,7 +9,6 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def join(pid, params \\ %{}, opts \\ []) do
-    Logger.debug "Call Join"
     timeout =  opts[:timeout] || @default_timeout
     GenServer.call(pid, {:join, params, timeout})
   end
@@ -45,7 +44,6 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_call({:join, params, timeout}, _from, %{socket: socket} = state) do
-    #Logger.debug "Join Channel: #{state.topic}"
     push = socket.push(socket, state.topic, "phx_join", params)
     timer_ref = :erlang.start_timer(timeout, self(), push)
     {:reply, push, %{state | state: :joining, join_push: push, join_timer: timer_ref}}
@@ -54,7 +52,6 @@ defmodule PhoenixChannelClient.Server do
   def handle_call({:leave, opts}, _from, %{socket: socket} = state) do
     push = socket.push(socket, state.topic, "phx_leave", %{})
     chan_state = if opts[:brutal] == true do
-      #Logger.debug "Brutal Leave"
       socket.channel_unlink(socket, self(), state.topic)
       :closed
     else
@@ -78,7 +75,6 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_info({:trigger, "phx_error", reason, _ref}, state) do
-    Logger.error "Trigger Error: #{inspect reason}"
     state.sender.handle_close({:closed, reason}, %{state | state: :errored})
   end
 
@@ -103,12 +99,10 @@ defmodule PhoenixChannelClient.Server do
   end
 
   def handle_info({:trigger, event, payload, _ref}, state) do
-    #Logger.debug "Trigger: #{inspect p}"
     state.sender.handle_in(event, payload, state)
   end
 
   def handle_info(:rejoin, state) do
-    Logger.debug "Channel Rejoin"
     push = state.join_push
     state.socket.push(state.socket, push.topic, "phx_join", push.payload)
     {:noreply, %{state | state: :joining}}
@@ -117,11 +111,9 @@ defmodule PhoenixChannelClient.Server do
   # Push timer expired
 
   def handle_info({:timeout, _timer, push}, %{join_push: push} = state) do
-    Logger.error "Timer Expired for Join: #{inspect push}"
     state.sender.handle_reply({:timeout, :join}, state)
   end
   def handle_info({:timeout, timer, _push}, %{pushes: pushes} = state) do
-    Logger.error "Timer Expired for Push: #{inspect pushes}"
     partition =
       Enum.split_with(pushes, fn({ref, _}) ->
         ref == timer

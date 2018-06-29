@@ -27,7 +27,6 @@ defmodule PhoenixChannelClientTest do
     use Phoenix.Channel
     require Logger
     def join(topic, message, socket) do
-      Logger.debug "Channel Join Called"
       Process.flag(:trap_exit, true)
       Process.register(self(), String.to_atom(topic))
       send(self(), {:after_join, message})
@@ -76,7 +75,6 @@ defmodule PhoenixChannelClientTest do
       origins: ["//example.com"]
 
     def connect(%{"reject" => "true"}, _socket) do
-      IO.inspect "rejected"
       :error
     end
     def connect(params, socket) do
