@@ -137,8 +137,7 @@ defmodule PhoenixChannelClient.Socket do
 
   # New Messages from the socket come in here
   def handle_info(
-        {:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}} =
-          msg,
+        {:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}},
         %{channels: channels} = state
       ) do
     Enum.filter(channels, fn {_channel, channel_topic} ->
@@ -193,7 +192,7 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, %{state | socket: pid}}
   end
 
-  def terminate(reason, _state) do
+  def terminate(_reason, _state) do
     :ok
   end
 end

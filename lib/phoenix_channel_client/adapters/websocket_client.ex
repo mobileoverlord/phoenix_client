@@ -47,7 +47,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   @doc """
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
-  def websocket_info({:send, msg}, conn_state, state) do
+  def websocket_info({:send, msg}, _conn_state, state) do
     {:reply, {:text, state.serializer.encode!(msg)}, state}
   end
 
