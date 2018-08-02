@@ -81,6 +81,14 @@ defmodule PhoenixChannelClient.Server do
     {:reply, :ok, %{state | pushes: pushes}}
   end
 
+  def handle_call(call, from, state) do
+    state.sender.handle_call(call, from, state)
+  end
+
+  def handle_cast(cast, state) do
+    state.sender.handle_cast(cast, state)
+  end
+
   def handle_info({:trigger, "phx_error", reason, _ref}, state) do
     state.sender.handle_close({:closed, reason}, %{state | state: :errored})
   end
@@ -150,5 +158,9 @@ defmodule PhoenixChannelClient.Server do
       _ ->
         {:noreply, state}
     end
+  end
+
+  def handle_info(message, state) do
+    state.sender.handle_info(message, state)
   end
 end
