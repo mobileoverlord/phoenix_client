@@ -4,12 +4,13 @@ defmodule PhoenixChannelClient.Mixfile do
   def project do
     [
       app: :phoenix_channel_client,
-      version: "0.3.0-dev",
+      version: "0.3.0",
       elixir: "~> 1.0",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       description: description(),
       package: package(),
+      docs: [extras: ["README.md"], main: "readme"],
       deps: deps()
     ]
   end
@@ -35,7 +36,8 @@ defmodule PhoenixChannelClient.Mixfile do
       {:websocket_client, "~> 1.3", optional: true},
       {:phoenix, github: "phoenixframework/phoenix", tag: "v1.3.2", only: :test},
       {:jason, "~> 1.0", only: :test},
-      {:cowboy, "~> 1.0", only: :test}
+      {:cowboy, "~> 1.0", only: :test},
+      {:ex_doc, "~> 0.18.0", only: :dev}
     ]
   end
 
