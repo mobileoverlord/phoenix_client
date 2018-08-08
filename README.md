@@ -17,20 +17,26 @@ end
 
 Example usage
 ## Socket
-Using the Phoenix Channel Client requires you add a Socket module to your supervision tree for handling the socket connection.
+Using the Phoenix Channel Client requires you add a Socket module to your 
+supervision tree to handle the socket connection.
+
 ```elixir
 defmodule MySocket do
   use PhoenixChannelClient.Socket, otp_app: :my_app
 end
 ```
 
+You can configure your socket in the Mix config.
+
 ```elixir
 config :my_app, MySocket,
   url: "ws://localhost:4000/socket/websocket",
-  serializer: Jason  
+  serializer: Jason,
+  params: %{token: "12345"}
 ```
 
-Channels function with callbacks inside a module
+Channels function with callbacks inside a defined module.
+
 ```elixir
 defmodule MyChannel do
   use PhoenixChannelClient
@@ -60,9 +66,10 @@ defmodule MyChannel do
 end
 ```
 
-usage
+General usage:
+
 ```elixir
-{:ok, socket} = MySocket.start_link
+{:ok, socket} = MySocket.start_link(params: %{token: "12345"})
 {:ok, channel} = PhoenixChannelClient.channel(MyChannel, socket: MySocket, topic: "rooms:lobby")
 MyChannel.join(%{})
 MyChannel.leave()
