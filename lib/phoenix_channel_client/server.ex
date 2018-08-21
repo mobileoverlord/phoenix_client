@@ -133,9 +133,13 @@ defmodule PhoenixChannelClient.Server do
     state.sender.handle_in(event, payload, state)
   end
 
+  def handle_info(:rejoin, %{join_push: nil} = state) do
+    {:noreply, state}
+  end
+
   def handle_info(:rejoin, state) do
     push = state.join_push
-    state.socket.push(state.socket, push.topic, "phx_join", push.payload)
+    state.socket.push(push.topic, "phx_join", push.payload)
     {:noreply, %{state | state: :joining}}
   end
 
