@@ -26,13 +26,11 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   end
 
   def ondisconnect({:remote, :closed}, state) do
-    send(state.sender, {:closed, :normal, self()})
-    {:ok, state}
+    {:close, :normal, state}
   end
 
   def ondisconnect({:error, reason}, state) do
-    send(state.sender, {:closed, reason, self()})
-    {:ok, state}
+    {:close, reason, state}
   end
 
   @doc """

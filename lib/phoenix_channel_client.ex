@@ -9,6 +9,8 @@ defmodule PhoenixChannelClient do
   @callback handle_close(reply :: Tuple.t(), state :: map) ::
               {:noreply, state :: map}
               | {:stop, reason :: term, state :: map}
+  
+  require Logger
 
   @callback handle_call(request :: term, from, state :: term) ::
               {:reply, reply, new_state}
@@ -58,7 +60,6 @@ defmodule PhoenixChannelClient do
       end
 
       def handle_in(event, payload, state) do
-        IO.inspect("Handle in: #{event} #{inspect(payload)}")
         {:noreply, state}
       end
 
@@ -67,7 +68,6 @@ defmodule PhoenixChannelClient do
       end
 
       def handle_close(payload, state) do
-        IO.inspect("Handle Close")
         {:noreply, state}
       end
 
@@ -106,8 +106,8 @@ defmodule PhoenixChannelClient do
     PhoenixChannelClient.Server.start_link(sender, opts)
   end
 
-  def terminate(message, _state) do
-    IO.puts("Terminate: #{inspect(message)}")
+  def terminate(reason, _state) do
+    Logger.error("Channel terminated: #{reason}")
     :shutdown
   end
 end

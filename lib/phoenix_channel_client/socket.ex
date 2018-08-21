@@ -72,6 +72,8 @@ defmodule PhoenixChannelClient.Socket do
     reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
     adapter_opts = Keyword.put(opts, :sender, self())
 
+    Process.flag(:trap_exit, true)
+
     send(self(), :connect)
 
     {:ok,
@@ -192,7 +194,12 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, %{state | socket: pid}}
   end
 
-  def terminate(_reason, _state) do
-    :ok
+  def handle_info({:EXIT, socket, _reason}, %{socket: socket} = state) do
+    {:noreply, %{state | socket: nil}}
+  end
+
+  def terminate(reason, _state) do
+    Logger.error "Socket terminated: #{inspect reason}"
+    :shutdown
   end
 end
