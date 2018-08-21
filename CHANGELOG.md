@@ -1,5 +1,10 @@
 # PhoenixChannelClient
 
+## v0.3.1
+
+* Bug fixes
+  * Fix issue with socket spawning too many adaptors on reconnect timer.
+
 ## v0.3.0
 
 * Enhancements
