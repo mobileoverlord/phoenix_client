@@ -148,8 +148,15 @@ defmodule PhoenixChannelClientTest do
   require Logger
 
   setup_all do
-    # Endpoint.start_link()
     capture_log(fn -> Endpoint.start_link() end)
+
+    on_exit(fn ->
+      if pid = Process.whereis(ClientSocket) do
+        Process.exit(pid, :kill)
+        :time.sleep(20)
+      end
+    end)
+
     :ok
   end
 

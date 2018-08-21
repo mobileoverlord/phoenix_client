@@ -9,7 +9,7 @@ defmodule PhoenixChannelClient do
   @callback handle_close(reply :: Tuple.t(), state :: map) ::
               {:noreply, state :: map}
               | {:stop, reason :: term, state :: map}
-  
+
   require Logger
 
   @callback handle_call(request :: term, from, state :: term) ::
@@ -107,7 +107,7 @@ defmodule PhoenixChannelClient do
   end
 
   def terminate(reason, _state) do
-    Logger.error("Channel terminated: #{reason}")
+    Logger.warn("Channel terminated: #{reason}")
     :shutdown
   end
 end

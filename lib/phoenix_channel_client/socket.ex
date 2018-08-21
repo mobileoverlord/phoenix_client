@@ -34,16 +34,20 @@ defmodule PhoenixChannelClient.Socket do
         )
       end
 
-      def push(pid, topic, event, payload) do
-        GenServer.call(pid, {:push, topic, event, payload})
+      def stop() do
+        GenServer.stop(__MODULE__)
       end
 
-      def channel_link(pid, channel, topic) do
-        GenServer.call(pid, {:channel_link, channel, topic})
+      def push(topic, event, payload) do
+        GenServer.call(__MODULE__, {:push, topic, event, payload})
       end
 
-      def channel_unlink(pid, channel, topic) do
-        GenServer.call(pid, {:channel_unlink, channel, topic})
+      def channel_link(channel, topic) do
+        GenServer.call(__MODULE__, {:channel_link, channel, topic})
+      end
+
+      def channel_unlink(channel, topic) do
+        GenServer.call(__MODULE__, {:channel_unlink, channel, topic})
       end
 
       def handle_close(_reason, state) do
@@ -199,7 +203,7 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def terminate(reason, _state) do
-    Logger.error "Socket terminated: #{inspect reason}"
+    Logger.warn("Socket terminated: #{inspect(reason)}")
     :shutdown
   end
 end
