@@ -133,14 +133,14 @@ defmodule PhoenixChannelClient.Server do
     state.sender.handle_in(event, payload, state)
   end
 
-  def handle_info(:rejoin, %{join_push: nil} = state) do
-    {:noreply, state}
+  def handle_info(:rejoin, %{state: status, join_push: push} = state) 
+    when status != :joining and push != nil do
+    state.socket.push(push.topic, "phx_join", push.payload)
+    {:noreply, %{state | state: :joining}}
   end
 
   def handle_info(:rejoin, state) do
-    push = state.join_push
-    state.socket.push(push.topic, "phx_join", push.payload)
-    {:noreply, %{state | state: :joining}}
+    {:noreply, state}
   end
 
   # Push timer expired
