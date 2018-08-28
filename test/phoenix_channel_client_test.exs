@@ -15,7 +15,8 @@ defmodule PhoenixChannelClientTest do
     https: false,
     http: [port: @port],
     secret_key_base: String.duplicate("abcdefgh", 8),
-    debug_errors: true,
+    debug_errors: false,
+    code_reloader: false,
     server: true,
     pubsub: [adapter: Phoenix.PubSub.PG2, name: :int_pub]
   )
@@ -70,8 +71,6 @@ defmodule PhoenixChannelClientTest do
 
     channel("rooms:*", RoomChannel)
 
-    transport(:longpoll, Phoenix.Transports.LongPoll, window_ms: 200, origins: ["//example.com"])
-
     transport(:websocket, Phoenix.Transports.WebSocket, origins: ["//example.com"])
 
     def connect(%{"reject" => "true"}, _socket) do
@@ -119,8 +118,10 @@ defmodule PhoenixChannelClientTest do
   defmodule ClientSocket do
     use PhoenixChannelClient.Socket
 
-    def handle_close(reason, state) do
-      send(state.opts[:caller], {:socket_closed, reason})
+    def handle_close(reason, %{opts: opts} = state) do
+      if caller = Keyword.get(opts, :caller) do
+        send(caller, {:socket_closed, reason})
+      end
       {:noreply, state}
     end
   end
@@ -141,6 +142,7 @@ defmodule PhoenixChannelClientTest do
 
     def handle_close(payload, state) do
       send(state.opts[:caller], {:closed, payload})
+      send(self(), :reconnect)
       {:noreply, state}
     end
   end
@@ -149,14 +151,6 @@ defmodule PhoenixChannelClientTest do
 
   setup_all do
     capture_log(fn -> Endpoint.start_link() end)
-
-    on_exit(fn ->
-      if pid = Process.whereis(ClientSocket) do
-        Process.exit(pid, :kill)
-        :time.sleep(20)
-      end
-    end)
-
     :ok
   end
 
