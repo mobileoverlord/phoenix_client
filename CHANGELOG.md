@@ -1,5 +1,10 @@
 # PhoenixChannelClient
 
+## v0.3.2
+
+* Bug fixes
+  * Fix issue with rejoin timer being fired before initial join.
+
 ## v0.3.1
 
 * Bug fixes

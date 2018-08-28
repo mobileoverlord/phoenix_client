@@ -2,7 +2,7 @@
 
 Channel client for connecting to Phoenix
 
-## Usage
+## Installation
 
 Add phoenix_channel_client as a dependency in your `mix.exs` file.
 
@@ -15,7 +15,6 @@ def deps do
 end
 ```
 
-Example usage
 ## Socket
 Using the Phoenix Channel Client requires you add a Socket module to your 
 supervision tree to handle the socket connection.
@@ -60,13 +59,13 @@ defmodule MyChannel do
   end
 
   def handle_close(reason, state) do
-    send_after(5000, :rejoin)
-    {:noreply, rejoin(state)}
+    Process.send_after(self(), :rejoin, 5_000)
+    {:noreply, state}
   end
 end
 ```
 
-General usage:
+## Usage
 
 ```elixir
 {:ok, socket} = MySocket.start_link(params: %{token: "12345"})

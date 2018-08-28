@@ -4,8 +4,8 @@ defmodule PhoenixChannelClient.Mixfile do
   def project do
     [
       app: :phoenix_channel_client,
-      version: "0.3.1",
-      elixir: "~> 1.0",
+      version: "0.3.2",
+      elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       description: description(),
@@ -15,29 +15,17 @@ defmodule PhoenixChannelClient.Mixfile do
     ]
   end
 
-  # Configuration for the OTP application
-  #
-  # Type `mix help compile.app` for more information
   def application do
     [applications: [:logger]]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # Type `mix help deps` for more examples and options
   defp deps do
     [
       {:websocket_client, "~> 1.3", optional: true},
       {:phoenix, github: "phoenixframework/phoenix", tag: "v1.3.2", only: :test},
       {:jason, "~> 1.0", only: :test},
       {:cowboy, "~> 1.0", only: :test},
-      {:ex_doc, "~> 0.18.0", only: :dev}
+      {:ex_doc, "~> 0.18", only: :dev}
     ]
   end
 
