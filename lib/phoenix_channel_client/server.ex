@@ -124,7 +124,7 @@ defmodule PhoenixChannelClient.Server do
           | pushes: pushes
         })
 
-      {[], []} ->
+      {[], _} ->
         {:noreply, state}
     end
   end
