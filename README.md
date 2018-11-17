@@ -9,6 +9,7 @@ Add phoenix_channel_client as a dependency in your `mix.exs` file.
 ```elixir
 def deps do
   [
+    {:websocket_client, "~> 1.3"},
     {:phoenix_channel_client, "~> 0.3"},
     {:jason, "~> 1.0"} #optional. You can use your own JSON serializer
   ]
