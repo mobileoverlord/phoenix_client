@@ -39,8 +39,20 @@ defmodule PhoenixChannelClient do
 
       @behaviour unquote(__MODULE__)
 
-      def start_link(opts) do
-        Server.start_link(__MODULE__, opts)
+      def child_spec({opts, genserver_opts}) do
+        IO.inspect opts
+        id = genserver_opts[:id] || __MODULE__
+        %{
+          id: id,
+          restart: :permanent,
+          shutdown: 5000,
+          start: {__MODULE__, :start_link, [opts, genserver_opts]},
+          type: :worker
+        }
+      end
+
+      def start_link(opts, genserver_opts \\ []) do
+        Server.start_link(__MODULE__, opts, genserver_opts)
       end
 
       def join(params \\ %{}) do

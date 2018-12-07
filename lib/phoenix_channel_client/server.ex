@@ -4,8 +4,8 @@ defmodule PhoenixChannelClient.Server do
 
   @default_timeout 5_000
 
-  def start_link(sender, opts) do
-    GenServer.start_link(__MODULE__, {sender, opts}, name: sender)
+  def start_link(sender, opts, genserver_opts \\ []) do
+    GenServer.start_link(__MODULE__, {sender, opts}, genserver_opts)
   end
 
   def join(pid, params \\ %{}, opts \\ []) do
@@ -133,7 +133,7 @@ defmodule PhoenixChannelClient.Server do
     state.sender.handle_in(event, payload, state)
   end
 
-  def handle_info(:rejoin, %{state: status, join_push: push} = state) 
+  def handle_info(:rejoin, %{state: status, join_push: push} = state)
     when status != :joining and push != nil do
     state.socket.push(push.topic, "phx_join", push.payload)
     {:noreply, %{state | state: :joining}}
