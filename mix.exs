@@ -22,9 +22,9 @@ defmodule PhoenixChannelClient.Mixfile do
   defp deps do
     [
       {:websocket_client, "~> 1.3", optional: true},
-      {:phoenix, github: "phoenixframework/phoenix", tag: "v1.3.2", only: :test},
+      {:phoenix, github: "phoenixframework/phoenix", tag: "v1.4.0", only: :test},
       {:jason, "~> 1.0", only: :test},
-      {:cowboy, "~> 1.0", only: :test},
+      {:plug_cowboy, "~> 2.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev}
     ]
   end
