@@ -55,22 +55,6 @@ defmodule PhoenixChannelClient do
         Server.start_link(__MODULE__, opts, genserver_opts)
       end
 
-      def join(params \\ %{}) do
-        Server.join(__MODULE__, params)
-      end
-
-      def leave do
-        Server.leave(__MODULE__)
-      end
-
-      def cancel_push(push_ref) do
-        Server.cancel_push(__MODULE__, push_ref)
-      end
-
-      def push(event, payload, opts \\ []) do
-        Server.push(__MODULE__, event, payload, opts)
-      end
-
       def handle_in(event, payload, state) do
         {:noreply, state}
       end
@@ -112,6 +96,24 @@ defmodule PhoenixChannelClient do
                      handle_cast: 2,
                      handle_call: 3
     end
+  end
+
+  alias PhoenixChannelClient.Server
+
+  def join(pid_or_name, params \\ %{}) do
+    Server.join(pid_or_name, params)
+  end
+
+  def leave(pid_or_name) do
+    Server.leave(pid_or_name)
+  end
+
+  def cancel_push(pid_or_name, push_ref) do
+    Server.cancel_push(pid_or_name, push_ref)
+  end
+
+  def push(pid_or_name, event, payload, opts \\ []) do
+    Server.push(pid_or_name, event, payload, opts)
   end
 
   def channel(sender, opts) do
