@@ -1,5 +1,29 @@
 # PhoenixChannelClient
 
+## v0.4.0
+
+* Breaking changes
+  * Channel pids are not longer named by default. If you would like to name the
+    pid, you can pass genserver_opts to the child spec:
+
+    For example:
+
+    ```elixir
+    {MyApp.Channel, {[socket: MyApp.Socket, topic: "room:lobby"], [name: MyApp.Channel]}}
+    ```
+
+  * Calls for `join`, `push`, `cancel_push`, and `leave` are no longer injected
+    into the channel module. These functions have been moved to the
+    `PhoenixChannelClient` module.
+
+    For example:
+
+    ```elixir
+    MyChannel.join()
+    # becomes
+    PhoenixChannelClient.join(channel_pid_or_name)
+    ```
+
 ## v0.3.2
 
 * Bug fixes
@@ -14,7 +38,7 @@
 
 * Enhancements
   * Pass `handle_info/2`, `handle_call/3`, and `haneld_cast/2` messages
-    through to the channel server process  
+    through to the channel server process
   * Add ability to pass socket params
   * Add support for client SSL certificates
   * Use `Jason` as default JSON parser
