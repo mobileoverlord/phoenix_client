@@ -20,8 +20,6 @@ defmodule PhoenixChannelClient.Socket do
     quote unquote: false do
       use GenServer
 
-      # alias PhoenixChannelClient.Push
-
       def start_link(opts \\ []) do
         opts =
           Application.get_env(@otp_app, __MODULE__, [])
@@ -34,22 +32,6 @@ defmodule PhoenixChannelClient.Socket do
         )
       end
 
-      def stop() do
-        GenServer.stop(__MODULE__)
-      end
-
-      def push(topic, event, payload) do
-        GenServer.call(__MODULE__, {:push, topic, event, payload})
-      end
-
-      def channel_link(channel, topic) do
-        GenServer.call(__MODULE__, {:channel_link, channel, topic})
-      end
-
-      def channel_unlink(channel, topic) do
-        GenServer.call(__MODULE__, {:channel_unlink, channel, topic})
-      end
-
       def handle_close(_reason, state) do
         {:noreply, state}
       end
@@ -60,6 +42,22 @@ defmodule PhoenixChannelClient.Socket do
 
       defoverridable handle_close: 2
     end
+  end
+
+  def stop(pid) do
+    GenServer.stop(pid)
+  end
+
+  def push(pid, topic, event, payload) do
+    GenServer.call(pid, {:push, topic, event, payload})
+  end
+
+  def channel_link(pid, channel, topic) do
+    GenServer.call(pid, {:channel_link, channel, topic})
+  end
+
+  def channel_unlink(pid, channel, topic) do
+    GenServer.call(pid, {:channel_unlink, channel, topic})
   end
 
   ## Callbacks
@@ -146,6 +144,7 @@ defmodule PhoenixChannelClient.Socket do
         {:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}},
         %{channels: channels} = state
       ) do
+
     Enum.filter(channels, fn {_channel, channel_topic} ->
       topic == channel_topic
     end)

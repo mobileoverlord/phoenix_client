@@ -45,8 +45,7 @@ defmodule PhoenixChannelClientTest do
     end
 
     def handle_in("new:msg", message, socket) do
-      broadcast!(socket, "new:msg", message)
-      {:noreply, socket}
+      {:reply, {:ok, message}, socket}
     end
 
     def handle_in("boom", _message, _socket) do
@@ -130,14 +129,16 @@ defmodule PhoenixChannelClientTest do
     require Logger
 
     def handle_in(event, payload, state) do
-      send(state.opts[:caller], {event, payload})
+      if caller = state.opts[:caller] do
+        send(caller, {event, payload})
+      end
       {:noreply, state}
     end
 
-    def handle_reply(payload, state) do
-      send(state.opts[:caller], payload)
-      {:noreply, state}
-    end
+    # def handle_reply(payload, state) do
+    #   send(state.opts[:caller], payload)
+    #   {:noreply, state}
+    # end
 
     def handle_close(payload, state) do
       send(state.opts[:caller], {:closed, payload})
@@ -156,25 +157,17 @@ defmodule PhoenixChannelClientTest do
   test "socket can join a channel" do
     {:ok, _} = Socket.start_link(@socket_config)
 
-    {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
-
-    %{ref: ref} = ChannelClient.join(channel)
-
-    assert_receive {:ok, :join, _, ^ref}
+    assert {:ok, channel} =
+      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
   end
 
   test "socket can leave a channel" do
     {:ok, _} = Socket.start_link(@socket_config)
 
-    {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
+    assert {:ok, channel} =
+      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
 
-    %{ref: ref} = ChannelClient.join(channel)
-    assert_receive {:ok, :join, _, ^ref}
-    ChannelClient.leave(channel)
-    assert_receive {"you:left", %{"message" => "bye!"}}
-    assert_receive {:closed, _}
+    assert :ok = Channel.stop(channel)
   end
 
   test "client can push to a channel" do
@@ -183,36 +176,16 @@ defmodule PhoenixChannelClientTest do
     {:ok, channel} =
       Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
 
-    %{ref: ref} = ChannelClient.join(channel)
-    assert_receive {:ok, :join, _, ^ref}
-    ChannelClient.push(channel, "new:msg", %{test: :test})
-    assert_receive {"new:msg", %{"test" => "test"}}
+    assert {:ok, %{"test" => "test"}} = ChannelClient.push(channel, "new:msg", %{test: :test})
   end
 
-  test "push timeouts are received" do
+  test "push timeouts" do
     {:ok, _} = Socket.start_link(@socket_config)
 
     {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
+      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
 
-    %{ref: ref} = ChannelClient.join(channel)
-    assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ChannelClient.push(channel, "foo:bar", %{}, timeout: 500)
-    :timer.sleep(1_000)
-    assert_receive {:timeout, "foo:bar", ^ref}
-  end
-
-  test "push timeouts are able to be canceled" do
-    {:ok, _} = Socket.start_link(@socket_config)
-
-    {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
-
-    %{ref: ref} = ChannelClient.join(channel)
-    assert_receive {:ok, :join, _, ^ref}
-    %{ref: ref} = ChannelClient.push(channel, "foo:bar", %{}, timeout: 100)
-    ChannelClient.cancel_push(channel, ref)
-    refute_receive {:timeout, "foo:bar", ^ref}, 200
+    assert catch_exit(ChannelClient.push(channel, "foo:bar", %{}, timeout: 500))
   end
 
   test "socket params can be sent" do

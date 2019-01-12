@@ -4,14 +4,6 @@ defmodule PhoenixChannelClient do
   @callback handle_in(event :: String.t(), payload :: map, state :: map) ::
               {:noreply, state :: map}
 
-  @callback handle_reply(reply :: Tuple.t(), state :: map) :: {:noreply, state :: map}
-
-  @callback handle_close(reply :: Tuple.t(), state :: map) ::
-              {:noreply, state :: map}
-              | {:stop, reason :: term, state :: map}
-
-  require Logger
-
   @callback handle_call(request :: term, from, state :: term) ::
               {:reply, reply, new_state}
               | {:reply, reply, new_state, timeout | :hibernate | {:continue, term}}
@@ -40,7 +32,6 @@ defmodule PhoenixChannelClient do
       @behaviour unquote(__MODULE__)
 
       def child_spec({opts, genserver_opts}) do
-        IO.inspect opts
         id = genserver_opts[:id] || __MODULE__
         %{
           id: id,
@@ -55,11 +46,11 @@ defmodule PhoenixChannelClient do
         Server.start_link(__MODULE__, opts, genserver_opts)
       end
 
-      def handle_in(event, payload, state) do
-        {:noreply, state}
+      def stop(pid) do
+        Server.stop(pid)
       end
 
-      def handle_reply(payload, state) do
+      def handle_in(event, payload, state) do
         {:noreply, state}
       end
 
@@ -90,7 +81,6 @@ defmodule PhoenixChannelClient do
       end
 
       defoverridable handle_in: 3,
-                     handle_reply: 2,
                      handle_close: 2,
                      handle_info: 2,
                      handle_cast: 2,
@@ -98,19 +88,16 @@ defmodule PhoenixChannelClient do
     end
   end
 
+  require Logger
   alias PhoenixChannelClient.Server
 
-  def join(pid_or_name, params \\ %{}) do
-    Server.join(pid_or_name, params)
-  end
+  # def join(pid_or_name, params \\ %{}) do
+  #   Server.join(pid_or_name, params)
+  # end
 
-  def leave(pid_or_name) do
-    Server.leave(pid_or_name)
-  end
-
-  def cancel_push(pid_or_name, push_ref) do
-    Server.cancel_push(pid_or_name, push_ref)
-  end
+  # def leave(pid_or_name) do
+  #   Server.leave(pid_or_name)
+  # end
 
   def push(pid_or_name, event, payload, opts \\ []) do
     Server.push(pid_or_name, event, payload, opts)
