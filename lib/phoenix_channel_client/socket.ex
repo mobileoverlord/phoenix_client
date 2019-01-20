@@ -111,6 +111,7 @@ defmodule PhoenixChannelClient.Socket do
 
   def handle_call({:channel_link, channel, topic}, _from, state) do
     channels = state.channels
+    Process.monitor(channel)
 
     channels =
       if Enum.any?(channels, fn {c, t} -> c == channel and t == topic end) do
@@ -212,5 +213,10 @@ defmodule PhoenixChannelClient.Socket do
   def terminate(reason, _state) do
     Logger.warn("Socket terminated: #{inspect(reason)}")
     :shutdown
+  end
+
+  def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, %{channels: channels} = s) do
+    channels = Enum.reject(channels, &elem(&1, 0) == pid)
+    {:noreply, %{s | channels: channels}}
   end
 end
