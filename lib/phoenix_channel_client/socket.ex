@@ -60,6 +60,10 @@ defmodule PhoenixChannelClient.Socket do
     GenServer.call(pid, {:channel_unlink, channel, topic})
   end
 
+  def status(pid) do
+    GenServer.call(pid, :status)
+  end
+
   ## Callbacks
 
   def init({sender, opts}) do
@@ -121,6 +125,10 @@ defmodule PhoenixChannelClient.Socket do
   def handle_call({:channel_unlink, channel, topic}, _from, state) do
     channels = Enum.reject(state.channels, fn {c, t} -> c == channel and t == topic end)
     {:reply, channel, %{state | channels: channels}}
+  end
+
+  def handle_call(:status, _from, state) do
+    {:reply, state.status, state}
   end
 
   def handle_info({:connected, socket}, %{socket: socket} = state) do
