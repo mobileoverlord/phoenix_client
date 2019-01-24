@@ -1,5 +1,28 @@
 # PhoenixClient
 
+## v0.5.0
+
+**Important**
+This version has been renamed and refactored. You will need to migrate existing
+`phoenix_channel_client` projects before first use. Please see the readme for
+how to implement this new pattern.
+
+* Bug fixes
+  * The Socket will monitor linked channels for down messages and remove them
+    from the channel links.
+
+* Enhancements
+  * Removed the requirement to define `Socket` and `Channel` modules that implement
+    their respective behaviours. Sockets are now started by calling
+    `PhoenixClient.Socket.start_link` directly.
+    Channels are started by calling `PhoenixClient.Channel`.
+  * Calls to `PhoenixClient.Channel.push` happen synchronously. This helps to
+    reduce callback spaghetti code by making the reply available at the call site.
+    If you do not require a response from the server, you can use `push_async`.
+  * Non-reply messages that are pushed from the server will be sent to the pid
+    of the process that called join. They will be delivered as `%PhoenixClient.Message{}`.
+    See the main readme for an example of this.
+
 ## v0.4.0
 
 * Breaking changes
