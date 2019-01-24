@@ -1,4 +1,4 @@
-defmodule PhoenixChannelClient.Adapter do
+defmodule PhoenixClient.Transport do
   @callback open(url :: String.t(), opts :: Keyword.t()) ::
               {:ok, pid}
               | {:error, any}

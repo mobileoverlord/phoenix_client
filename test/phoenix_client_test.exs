@@ -1,12 +1,11 @@
-defmodule PhoenixChannelClientTest do
+defmodule PhoenixClientTest do
   use ExUnit.Case, async: false
   use RouterHelper
   import ExUnit.CaptureLog
   import Plug.Conn, except: [assign: 3, push: 3]
 
   alias __MODULE__.Endpoint
-  alias __MODULE__.Socket
-  alias PhoenixChannelClient, as: ChannelClient
+  alias PhoenixClient.{Socket, Channel, Message}
 
   @port 5807
 
@@ -113,40 +112,6 @@ defmodule PhoenixChannelClientTest do
     plug(Router)
   end
 
-  defmodule Socket do
-    use PhoenixChannelClient.Socket
-
-    def handle_close(reason, %{opts: opts} = state) do
-      if caller = Keyword.get(opts, :caller) do
-        send(caller, {:socket_closed, reason})
-      end
-      {:noreply, state}
-    end
-  end
-
-  defmodule Channel do
-    use PhoenixChannelClient
-    require Logger
-
-    def handle_in(event, payload, state) do
-      if caller = state.opts[:caller] do
-        send(caller, {event, payload})
-      end
-      {:noreply, state}
-    end
-
-    # def handle_reply(payload, state) do
-    #   send(state.opts[:caller], payload)
-    #   {:noreply, state}
-    # end
-
-    def handle_close(payload, state) do
-      send(state.opts[:caller], {:closed, payload})
-      send(self(), :reconnect)
-      {:noreply, state}
-    end
-  end
-
   require Logger
 
   setup_all do
@@ -155,37 +120,44 @@ defmodule PhoenixChannelClientTest do
   end
 
   test "socket can join a channel" do
-    {:ok, _} = Socket.start_link(@socket_config)
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    assert {:ok, _} = Channel.join(channel)
+  end
 
-    assert {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
+  test "socket can join a channel with params" do
+    user_id = "123"
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    assert {:ok, _} = Channel.join(channel, %{user: user_id})
+    assert_receive %Message{event: "user:entered", payload: %{"user" => ^user_id}}
   end
 
   test "socket can leave a channel" do
-    {:ok, _} = Socket.start_link(@socket_config)
-
-    assert {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
-
-    assert :ok = Channel.stop(channel)
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    assert :ok = Channel.leave(channel)
   end
 
   test "client can push to a channel" do
-    {:ok, _} = Socket.start_link(@socket_config)
-
-    {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby", caller: self())
-
-    assert {:ok, %{"test" => "test"}} = ChannelClient.push(channel, "new:msg", %{test: :test})
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    {:ok, _} = Channel.join(channel)
+    assert {:ok, %{"test" => "test"}} = Channel.push(channel, "new:msg", %{test: :test})
   end
 
   test "push timeouts" do
-    {:ok, _} = Socket.start_link(@socket_config)
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
 
-    {:ok, channel} =
-      Channel.start_link(socket: Socket, topic: "rooms:admin-lobby")
+    assert catch_exit(Channel.push(channel, "foo:bar", %{}, 500))
+  end
 
-    assert catch_exit(ChannelClient.push(channel, "foo:bar", %{}, timeout: 500))
+  test "push async" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+
+    assert :ok = Channel.push_async(channel, "foo:bar", %{})
   end
 
   test "socket params can be sent" do
@@ -194,7 +166,7 @@ defmodule PhoenixChannelClientTest do
       |> Keyword.put(:params, %{"reject" => true})
       |> Keyword.put(:caller, self())
 
-    {:ok, _} = Socket.start_link(opts)
-    assert_receive {:socket_closed, _reason}
+    {:ok, socket} = Socket.start_link(opts)
+    assert Socket.status(socket) == :disconnected
   end
 end

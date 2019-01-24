@@ -1,4 +1,4 @@
-# PhoenixChannelClient
+# PhoenixClient
 
 ## v0.4.0
 
@@ -14,14 +14,14 @@
 
   * Calls for `join`, `push`, `cancel_push`, and `leave` are no longer injected
     into the channel module. These functions have been moved to the
-    `PhoenixChannelClient` module.
+    `PhoenixClient` module.
 
     For example:
 
     ```elixir
     MyChannel.join()
     # becomes
-    PhoenixChannelClient.join(channel_pid_or_name)
+    PhoenixClient.join(channel_pid_or_name)
     ```
 
 ## v0.3.2

@@ -1,10 +1,13 @@
-defmodule PhoenixChannelClient.Adapters.WebsocketClient do
-  @behaviour PhoenixChannelClient.Adapter
+defmodule PhoenixClient.Transports.Websocket do
+  @behaviour PhoenixClient.Transport
 
-  require Logger
-
-  def open(url, adapter_opts) do
-    :websocket_client.start_link(String.to_charlist(url), __MODULE__, adapter_opts, adapter_opts)
+  def open(url, transport_opts) do
+    :websocket_client.start_link(
+      String.to_charlist(url),
+      __MODULE__,
+      transport_opts,
+      transport_opts
+    )
   end
 
   def close(socket) do
@@ -15,7 +18,6 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
     {:once,
      %{
        opts: opts,
-       serializer: opts[:serializer],
        sender: opts[:sender]
      }}
   end
@@ -38,7 +40,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   forwards message to client sender process
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
-    send(state.sender, {:receive, state.serializer.decode!(msg)})
+    send(state.sender, {:receive, msg})
     {:ok, state}
   end
 
@@ -46,7 +48,7 @@ defmodule PhoenixChannelClient.Adapters.WebsocketClient do
   Sends JSON encoded Socket.Message to remote WS endpoint
   """
   def websocket_info({:send, msg}, _conn_state, state) do
-    {:reply, {:text, state.serializer.encode!(msg)}, state}
+    {:reply, {:text, msg}, state}
   end
 
   def websocket_info(:close, _conn_state, state) do

@@ -1,55 +1,33 @@
-defmodule PhoenixChannelClient.Socket do
+defmodule PhoenixClient.Socket do
   require Logger
 
   @heartbeat_interval 30_000
   @reconnect_interval 60_000
+  @default_transport PhoenixClient.Transports.Websocket
 
-  @callback handle_close(reply :: Tuple.t(), state :: map) ::
-              {:noreply, state :: map}
-              | {:stop, reason :: term, state :: map}
+  alias PhoenixClient.Message
 
-  defmacro __using__(opts) do
-    quote do
-      require Logger
-      @otp_app Keyword.get(unquote(opts), :otp_app)
-      unquote(socket())
-    end
+  def child_spec({opts, genserver_opts}) do
+    %{
+      id: genserver_opts[:id] || __MODULE__,
+      start: {__MODULE__, :start_link, [opts, genserver_opts]}
+    }
   end
 
-  defp socket do
-    quote unquote: false do
-      use GenServer
+  def child_spec(opts) do
+    child_spec({opts, []})
+  end
 
-      def start_link(opts \\ []) do
-        opts =
-          Application.get_env(@otp_app, __MODULE__, [])
-          |> Keyword.merge(opts)
-
-        GenServer.start_link(
-          PhoenixChannelClient.Socket,
-          {unquote(__MODULE__), opts},
-          name: __MODULE__
-        )
-      end
-
-      def handle_close(_reason, state) do
-        {:noreply, state}
-      end
-
-      def init(opts) do
-        {:ok, opts}
-      end
-
-      defoverridable handle_close: 2
-    end
+  def start_link(opts, genserver_opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, genserver_opts)
   end
 
   def stop(pid) do
     GenServer.stop(pid)
   end
 
-  def push(pid, topic, event, payload) do
-    GenServer.call(pid, {:push, topic, event, payload})
+  def push(pid, %Message{} = message) do
+    GenServer.call(pid, {:push, message})
   end
 
   def channel_link(pid, channel, topic) do
@@ -66,17 +44,23 @@ defmodule PhoenixChannelClient.Socket do
 
   ## Callbacks
 
-  def init({sender, opts}) do
-    adapter = opts[:adapter] || PhoenixChannelClient.Adapters.WebsocketClient
-
+  def init(opts) do
     :crypto.start()
     :ssl.start()
-    reconnect = Keyword.get(opts, :reconnect, true)
+
+    transport = opts[:transport] || @default_transport
+
+    json_library = Keyword.get(opts, :json_library, Jason)
+
+    reconnect? = Keyword.get(opts, :reconnect?, true)
     url = Keyword.get(opts, :url, "")
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
-    adapter_opts = Keyword.put(opts, :sender, self())
+
+    transport_opts =
+      Keyword.get(opts, :transport_opts, [])
+      |> Keyword.put(:sender, self())
 
     Process.flag(:trap_exit, true)
 
@@ -84,27 +68,28 @@ defmodule PhoenixChannelClient.Socket do
 
     {:ok,
      %{
-       sender: sender,
        opts: opts,
        url: url,
+       json_library: json_library,
        params: Keyword.get(opts, :params, %{}),
-       socket: nil,
        channels: [],
-       reconnect: reconnect,
-       reconnect_timer: nil,
+       reconnect: reconnect?,
        heartbeat_interval: heartbeat_interval,
        reconnect_interval: reconnect_interval,
+       reconnect_timer: nil,
        status: :disconnected,
-       adapter: adapter,
-       adapter_opts: adapter_opts,
+       transport: transport,
+       transport_opts: transport_opts,
+       transport_pid: nil,
        queue: :queue.new(),
        ref: 0
      }}
   end
 
-  def handle_call({:push, topic, event, payload}, _from, state) do
+  def handle_call({:push, %Message{} = message}, _from, state) do
     ref = state.ref + 1
-    push = %{topic: topic, event: event, payload: payload, ref: to_string(ref)}
+    push = %{message | ref: to_string(ref)}
+
     send(self(), :flush)
     {:reply, push, %{state | ref: ref, queue: :queue.in(push, state.queue)}}
   end
@@ -124,7 +109,10 @@ defmodule PhoenixChannelClient.Socket do
   end
 
   def handle_call({:channel_unlink, channel, topic}, _from, state) do
-    channels = Enum.reject(state.channels, fn {c, t} -> c == channel and t == topic end)
+    {unlink_channels, channels} =
+      Enum.split_with(state.channels, fn {c, t} -> c == channel and t == topic end)
+
+    Enum.each(unlink_channels, &(elem(&1, 1) |> Process.demonitor()))
     {:reply, channel, %{state | channels: channels}}
   end
 
@@ -132,14 +120,14 @@ defmodule PhoenixChannelClient.Socket do
     {:reply, state.status, state}
   end
 
-  def handle_info({:connected, socket}, %{socket: socket} = state) do
+  def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | status: :connected}}
   end
 
   def handle_info(:heartbeat, %{status: :connected} = state) do
     ref = state.ref + 1
-    send(state.socket, {:send, %{topic: "phoenix", event: "heartbeat", payload: %{}, ref: ref}})
+
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | ref: ref}}
   end
@@ -148,32 +136,23 @@ defmodule PhoenixChannelClient.Socket do
     {:noreply, state}
   end
 
-  # New Messages from the socket come in here
-  def handle_info(
-        {:receive, %{"topic" => topic, "event" => event, "payload" => payload, "ref" => ref}},
-        %{channels: channels} = state
-      ) do
-
-    Enum.filter(channels, fn {_channel, channel_topic} ->
-      topic == channel_topic
-    end)
-    |> Enum.each(fn {channel, _} ->
-      send(channel, {:trigger, event, payload, ref})
-    end)
-
+  # New Messages from the transport_pid come in here
+  def handle_info({:receive, message}, state) do
+    transport_receive(message, state)
     {:noreply, state}
   end
 
-  def handle_info({:closed, reason, socket}, %{socket: socket} = state) do
+  def handle_info({:closed, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
+    message = %Message{event: "phx_error", payload: %{reason: reason}}
     Enum.each(state.channels, fn {pid, _channel} ->
-      send(pid, {:trigger, "phx_error", :closed, nil})
+      send(pid, message)
     end)
 
     if state.reconnect == true do
       :erlang.send_after(state[:reconnect_interval], self(), :connect)
     end
 
-    state.sender.handle_close(reason, %{state | status: :disconnected})
+    {:noreply, state}
   end
 
   def handle_info(:flush, %{status: :connected} = state) do
@@ -182,8 +161,8 @@ defmodule PhoenixChannelClient.Socket do
         {:empty, _queue} ->
           state
 
-        {{:value, push}, queue} ->
-          send(state.socket, {:send, push})
+        {{:value, message}, queue} ->
+          transport_send(message, state)
           :erlang.send_after(100, self(), :flush)
           %{state | queue: queue}
       end
@@ -202,21 +181,35 @@ defmodule PhoenixChannelClient.Socket do
       |> Map.put(:query, URI.encode_query(state.params))
       |> to_string
 
-    {:ok, pid} = state[:adapter].open(url, state[:adapter_opts])
-    {:noreply, %{state | socket: pid}}
+    {:ok, pid} = state[:transport].open(url, state[:transport_opts])
+    {:noreply, %{state | transport_pid: pid}}
   end
 
-  def handle_info({:EXIT, socket, _reason}, %{socket: socket} = state) do
-    {:noreply, %{state | socket: nil}}
+  # Trap exits on the transport pid.
+  # If the transport failed
+  def handle_info({:EXIT, transport_pid, _reason}, %{transport_pid: transport_pid} = state) do
+    {:noreply, %{state | transport_pid: nil}}
   end
 
-  def terminate(reason, _state) do
-    Logger.warn("Socket terminated: #{inspect(reason)}")
-    :shutdown
-  end
-
+  # Unlink a channel if the process goes down
   def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, %{channels: channels} = s) do
-    channels = Enum.reject(channels, &elem(&1, 0) == pid)
+    channels = Enum.reject(channels, &(elem(&1, 0) == pid))
     {:noreply, %{s | channels: channels}}
+  end
+
+  defp transport_receive(message, state) do
+    %{channels: channels, json_library: json_library} = state
+    decoded = Message.decode!(message, json_library)
+
+    Enum.filter(channels, fn {_channel, channel_topic} ->
+      decoded.topic == channel_topic
+    end)
+    |> Enum.each(fn {channel, _} ->
+      send(channel, decoded)
+    end)
+  end
+
+  def transport_send(message, %{transport_pid: pid, json_library: json_library}) do
+    send(pid, {:send, Message.encode!(message, json_library)})
   end
 end

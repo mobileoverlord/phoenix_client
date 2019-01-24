@@ -1,10 +1,10 @@
-defmodule PhoenixChannelClient.Mixfile do
+defmodule PhoenixClient.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :phoenix_channel_client,
-      version: "0.4.0",
+      app: :phoenix_client,
+      version: "0.5.0-dev",
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
@@ -22,8 +22,8 @@ defmodule PhoenixChannelClient.Mixfile do
   defp deps do
     [
       {:websocket_client, "~> 1.3", optional: true},
+      {:jason, "~> 1.0", optional: true},
       {:phoenix, github: "phoenixframework/phoenix", tag: "v1.4.0", only: :test},
-      {:jason, "~> 1.0", only: :test},
       {:plug_cowboy, "~> 2.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev}
     ]
@@ -37,9 +37,8 @@ defmodule PhoenixChannelClient.Mixfile do
 
   defp package do
     [
-      maintainers: ["Justin Schneck"],
       licenses: ["Apache 2.0"],
-      links: %{"Github" => "https://github.com/mobileoverlord/phoenix_channel_client"}
+      links: %{"Github" => "https://github.com/mobileoverlord/phoenix_client"}
     ]
   end
 end
