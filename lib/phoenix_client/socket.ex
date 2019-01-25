@@ -152,7 +152,7 @@ defmodule PhoenixClient.Socket do
       :erlang.send_after(state[:reconnect_interval], self(), :connect)
     end
 
-    {:noreply, state}
+    {:noreply, %{state | status: :disconnected}}
   end
 
   def handle_info(:flush, %{status: :connected} = state) do
