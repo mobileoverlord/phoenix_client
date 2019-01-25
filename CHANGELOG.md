@@ -1,5 +1,13 @@
 # PhoenixClient
 
+## v0.5.1
+
+* Bug fixes
+  * Attempt to reconnect the socket if transport exits abnormally.
+  * Prevent the channel from delivering multiple "phx_error" or "phx_close".
+    messages if the socket fails.
+  * Set the socket status to :disconnected when the transport exits.
+
 ## v0.5.0
 
 **Important**
