@@ -128,6 +128,9 @@ defmodule PhoenixClient.Socket do
   def handle_info(:heartbeat, %{status: :connected} = state) do
     ref = state.ref + 1
 
+    %Message{topic: "phoenix", event: "heartbeat", ref: ref}
+    |> transport_send(state)
+
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | ref: ref}}
   end
@@ -143,15 +146,7 @@ defmodule PhoenixClient.Socket do
   end
 
   def handle_info({:closed, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
-    message = %Message{event: "phx_error", payload: %{reason: reason}}
-    Enum.each(state.channels, fn {pid, _channel} ->
-      send(pid, message)
-    end)
-
-    if state.reconnect == true do
-      :erlang.send_after(state[:reconnect_interval], self(), :connect)
-    end
-
+    close(reason, state)
     {:noreply, %{state | status: :disconnected}}
   end
 
@@ -187,8 +182,9 @@ defmodule PhoenixClient.Socket do
 
   # Trap exits on the transport pid.
   # If the transport failed
-  def handle_info({:EXIT, transport_pid, _reason}, %{transport_pid: transport_pid} = state) do
-    {:noreply, %{state | transport_pid: nil}}
+  def handle_info({:EXIT, transport_pid, reason}, %{transport_pid: transport_pid} = state) do
+    close(reason, state)
+    {:noreply, %{state | status: :disconnected, transport_pid: nil}}
   end
 
   # Unlink a channel if the process goes down
@@ -212,4 +208,19 @@ defmodule PhoenixClient.Socket do
   def transport_send(message, %{transport_pid: pid, json_library: json_library}) do
     send(pid, {:send, Message.encode!(message, json_library)})
   end
+
+  defp close(reason, state) do
+    message = %Message{event: close_event(reason), payload: %{reason: reason}}
+
+    Enum.each(state.channels, fn {pid, _channel} ->
+      send(pid, message)
+    end)
+
+    if state.reconnect == true do
+      :erlang.send_after(state[:reconnect_interval], self(), :connect)
+    end
+  end
+
+  defp close_event(:normal), do: "phx_close"
+  defp close_event(_), do: "phx_error"
 end
