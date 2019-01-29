@@ -3,8 +3,6 @@ ExUnit.start()
 
 Logger.configure(level: :error)
 
-Application.put_env(:phoenix, :json_library, Jason)
-
 # Starts web server applications
 Application.ensure_all_started(:cowboy)
 Application.ensure_all_started(:phoenix)
