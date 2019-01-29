@@ -193,13 +193,12 @@ defmodule PhoenixClientTest do
       |> Keyword.put(:caller, self())
 
     {:ok, socket} = Socket.start_link(opts)
-    assert Socket.status(socket) == :disconnected
+    refute Socket.connected?(socket)
   end
 
   def wait_for_socket(socket) do
-    case Socket.status(socket) do
-      :connected -> :ok
-      _ -> wait_for_socket(socket)
+    unless Socket.connected?(socket) do
+      wait_for_socket(socket)
     end
   end
 end

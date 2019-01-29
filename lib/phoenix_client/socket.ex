@@ -28,8 +28,9 @@ defmodule PhoenixClient.Socket do
     GenServer.stop(pid)
   end
 
-  def status(pid) do
-    GenServer.call(pid, :status)
+  @spec connected?(pid) :: boolean
+  def connected?(pid) do
+    GenServer.call(pid, :status) == :connected
   end
 
   @doc false
@@ -98,7 +99,11 @@ defmodule PhoenixClient.Socket do
   end
 
   @impl true
-  def handle_call({:channel_join, channel_pid, topic, params}, _from, %{channels: channels} = state) do
+  def handle_call(
+        {:channel_join, channel_pid, topic, params},
+        _from,
+        %{channels: channels} = state
+      ) do
     case Map.get(channels, topic) do
       nil ->
         monitor_ref = Process.monitor(channel_pid)
@@ -106,6 +111,7 @@ defmodule PhoenixClient.Socket do
         {push, state} = push_message(message, state)
         channels = Map.put(channels, topic, {channel_pid, monitor_ref})
         {:reply, {:ok, push}, %{state | channels: channels}}
+
       {pid, _topic} ->
         {:reply, {:error, {:already_joined, pid}}, state}
     end
@@ -195,13 +201,19 @@ defmodule PhoenixClient.Socket do
 
   # Handle Errors in the transport and channels
   @impl true
-  def handle_info({:closed, reason, transport_pid}, %{transport_pid: transport_pid, reconnect_timer: nil} = state) do
+  def handle_info(
+        {:closed, reason, transport_pid},
+        %{transport_pid: transport_pid, reconnect_timer: nil} = state
+      ) do
     {:noreply, close(reason, state)}
   end
 
   # Transport went down
   @impl true
-  def handle_info({:EXIT, transport_pid, reason}, %{transport_pid: transport_pid, reconnect_timer: nil} = state) do
+  def handle_info(
+        {:EXIT, transport_pid, reason},
+        %{transport_pid: transport_pid, reconnect_timer: nil} = state
+      ) do
     state = %{state | transport_pid: nil}
     {:noreply, close(reason, state)}
   end
@@ -210,7 +222,7 @@ defmodule PhoenixClient.Socket do
   @impl true
   def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, %{channels: channels} = state) do
     down_channel =
-      Enum.find(channels, fn({_topic, {channel_pid, _}}) ->
+      Enum.find(channels, fn {_topic, {channel_pid, _}} ->
         channel_pid == pid
       end)
 
@@ -270,5 +282,4 @@ defmodule PhoenixClient.Socket do
     state = %{state | ref: ref, queue: :queue.in(push, state.queue)}
     {push, state}
   end
-
 end

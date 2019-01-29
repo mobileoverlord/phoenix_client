@@ -50,8 +50,7 @@ You can control how frequently the socket will attempt to reconnect by setting
 Next, we will create a client channel and join the remote.
 
 ```elixir
-{:ok, channel} = PhoenixClient.Channel.start_link(socket: socket, topic: "rooms:lobby")
-{:ok, _response_payload} = PhoenixClient.Channel.join(channel)
+{:ok, _response, channel} = PhoenixClient.Channel.join(socket, "rooms:lobby")
 ```
 
 Now that we have successfully joined the channel, we are ready to push and receive
@@ -146,8 +145,7 @@ defmodule MyApp.Worker do
   # start_link ...
 
   def init(_opts) do
-    {:ok, channel} = Channel.start_link(Socket, "room:lobby")
-    {:ok, _} = Channel.join(channel)
+    {:ok, channel} = Channel.join(Socket, "room:lobby")
     {:ok, %{
       channel: channel
     }}
