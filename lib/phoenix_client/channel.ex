@@ -55,11 +55,13 @@ defmodule PhoenixClient.Channel do
       if Socket.connected?(socket_pid) do
         case ChannelSupervisor.start_channel(socket_pid, topic, params) do
           {:ok, pid} ->
+            Process.link(pid)
             case GenServer.call(pid, :join, timeout) do
               {:ok, reply} ->
                 {:ok, reply, pid}
 
               error ->
+                leave(pid)
                 error
             end
         end
