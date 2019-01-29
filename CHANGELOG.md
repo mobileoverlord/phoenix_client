@@ -1,5 +1,18 @@
 # PhoenixClient
 
+## v0.6.0
+
+* Enhancements
+  * Removed `Socket.status/1` in favor of `Socket.connected?/1`.
+  * Channel.start_link and stop are now private. You should call
+    Channel.join/leave to manage the lifecycle of the channel connection.
+  * Added a DynamicSupervisor for Channel connections
+
+* Bug fixes
+  * Refactored socket channel leaves and joins. The socket is now responsible
+    for sending the join and leave messages. This fixes potential issues where
+    the socket could attempt to join a topic more than once.
+
 ## v0.5.1
 
 * Bug fixes
