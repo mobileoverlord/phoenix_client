@@ -20,4 +20,19 @@ defmodule PhoenixClient.Message do
   def encode!(message, json_library) do
     json_library.encode!(message)
   end
+
+  def join(topic, params) do
+    %__MODULE__{
+      topic: topic,
+      event: "phx_join",
+      payload: params
+    }
+  end
+
+  def leave(topic) do
+    %__MODULE__{
+      topic: topic,
+      event: "phx_leave"
+    }
+  end
 end

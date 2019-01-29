@@ -30,6 +30,10 @@ defmodule PhoenixClientTest do
     use Phoenix.Channel
     require Logger
 
+    def join("rooms:reply", message, socket) do
+      {:ok, message, socket}
+    end
+
     def join(topic, message, socket) do
       Process.flag(:trap_exit, true)
       Process.register(self(), String.to_atom(topic))
@@ -121,41 +125,63 @@ defmodule PhoenixClientTest do
 
   test "socket can join a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
-    assert {:ok, _} = Channel.join(channel)
+    wait_for_socket(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+  end
+
+  test "socket cannot join more than one channel of the same topic" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    assert {:error, {:already_joined, ^channel}} = Channel.join(socket, "rooms:admin-lobby")
+  end
+
+  test "socket can join a channel and receive a reply" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    message = %{"foo" => "bar"}
+    assert {:ok, ^message, _channel} = Channel.join(socket, "rooms:reply", message)
+  end
+
+  test "return an error if socket is down" do
+    assert {:error, :socket_not_started} = Channel.join(:not_running, "rooms:any")
   end
 
   test "socket can join a channel with params" do
-    user_id = "123"
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
-    assert {:ok, _} = Channel.join(channel, %{user: user_id})
+    wait_for_socket(socket)
+    user_id = "123"
+    assert {:ok, _, _} = Channel.join(socket, "rooms:admin-lobby", %{user: user_id})
     assert_receive %Message{event: "user:entered", payload: %{"user" => ^user_id}}
   end
 
   test "socket can leave a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    wait_for_socket(socket)
+    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
     assert :ok = Channel.leave(channel)
+    refute Process.alive?(channel)
   end
 
   test "client can push to a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
-    {:ok, _} = Channel.join(channel)
+    wait_for_socket(socket)
+    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
     assert {:ok, %{"test" => "test"}} = Channel.push(channel, "new:msg", %{test: :test})
   end
 
   test "push timeouts" do
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    wait_for_socket(socket)
+    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
 
     assert catch_exit(Channel.push(channel, "foo:bar", %{}, 500))
   end
 
   test "push async" do
     {:ok, socket} = Socket.start_link(@socket_config)
-    {:ok, channel} = Channel.start_link(socket, "rooms:admin-lobby")
+    wait_for_socket(socket)
+    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
 
     assert :ok = Channel.push_async(channel, "foo:bar", %{})
   end
@@ -168,5 +194,12 @@ defmodule PhoenixClientTest do
 
     {:ok, socket} = Socket.start_link(opts)
     assert Socket.status(socket) == :disconnected
+  end
+
+  def wait_for_socket(socket) do
+    case Socket.status(socket) do
+      :connected -> :ok
+      _ -> wait_for_socket(socket)
+    end
   end
 end

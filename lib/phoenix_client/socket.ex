@@ -1,4 +1,6 @@
 defmodule PhoenixClient.Socket do
+  use GenServer
+
   require Logger
 
   @heartbeat_interval 30_000
@@ -26,24 +28,27 @@ defmodule PhoenixClient.Socket do
     GenServer.stop(pid)
   end
 
-  def push(pid, %Message{} = message) do
-    GenServer.call(pid, {:push, message})
-  end
-
-  def channel_link(pid, channel, topic) do
-    GenServer.call(pid, {:channel_link, channel, topic})
-  end
-
-  def channel_unlink(pid, channel, topic) do
-    GenServer.call(pid, {:channel_unlink, channel, topic})
-  end
-
   def status(pid) do
     GenServer.call(pid, :status)
   end
 
-  ## Callbacks
+  @doc false
+  def push(pid, %Message{} = message) do
+    GenServer.call(pid, {:push, message})
+  end
 
+  @doc false
+  def channel_join(pid, channel, topic, params) do
+    GenServer.call(pid, {:channel_join, channel, topic, params})
+  end
+
+  @doc false
+  def channel_leave(pid, channel, topic) do
+    GenServer.call(pid, {:channel_leave, channel, topic})
+  end
+
+  ## Callbacks
+  @impl true
   def init(opts) do
     :crypto.start()
     :ssl.start()
@@ -72,7 +77,7 @@ defmodule PhoenixClient.Socket do
        url: url,
        json_library: json_library,
        params: Keyword.get(opts, :params, %{}),
-       channels: [],
+       channels: %{},
        reconnect: reconnect?,
        heartbeat_interval: heartbeat_interval,
        reconnect_interval: reconnect_interval,
@@ -86,45 +91,53 @@ defmodule PhoenixClient.Socket do
      }}
   end
 
+  @impl true
   def handle_call({:push, %Message{} = message}, _from, state) do
-    ref = state.ref + 1
-    push = %{message | ref: to_string(ref)}
-
-    send(self(), :flush)
-    {:reply, push, %{state | ref: ref, queue: :queue.in(push, state.queue)}}
+    {push, state} = push_message(message, state)
+    {:reply, push, state}
   end
 
-  def handle_call({:channel_link, channel, topic}, _from, state) do
-    channels = state.channels
-    Process.monitor(channel)
-
-    channels =
-      if Enum.any?(channels, fn {c, t} -> c == channel and t == topic end) do
-        channels
-      else
-        [{channel, topic} | state.channels]
-      end
-
-    {:reply, channel, %{state | channels: channels}}
+  @impl true
+  def handle_call({:channel_join, channel_pid, topic, params}, _from, %{channels: channels} = state) do
+    case Map.get(channels, topic) do
+      nil ->
+        monitor_ref = Process.monitor(channel_pid)
+        message = Message.join(topic, params)
+        {push, state} = push_message(message, state)
+        channels = Map.put(channels, topic, {channel_pid, monitor_ref})
+        {:reply, {:ok, push}, %{state | channels: channels}}
+      {pid, _topic} ->
+        {:reply, {:error, {:already_joined, pid}}, state}
+    end
   end
 
-  def handle_call({:channel_unlink, channel, topic}, _from, state) do
-    {unlink_channels, channels} =
-      Enum.split_with(state.channels, fn {c, t} -> c == channel and t == topic end)
+  @impl true
+  def handle_call({:channel_leave, _channel, topic}, _from, %{channels: channels} = state) do
+    case Map.get(channels, topic) do
+      nil ->
+        {:reply, :error, state}
 
-    Enum.each(unlink_channels, &(elem(&1, 1) |> Process.demonitor()))
-    {:reply, channel, %{state | channels: channels}}
+      {_channel_pid, monitor_ref} ->
+        Process.demonitor(monitor_ref)
+        message = Message.leave(topic)
+        {push, state} = push_message(message, state)
+        channels = Map.drop(channels, [topic])
+        {:reply, {:ok, push}, %{state | channels: channels}}
+    end
   end
 
+  @impl true
   def handle_call(:status, _from, state) do
     {:reply, state.status, state}
   end
 
+  @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | status: :connected}}
   end
 
+  @impl true
   def handle_info(:heartbeat, %{status: :connected} = state) do
     ref = state.ref + 1
 
@@ -135,16 +148,19 @@ defmodule PhoenixClient.Socket do
     {:noreply, %{state | ref: ref}}
   end
 
+  @impl true
   def handle_info(:heartbeat, state) do
     {:noreply, state}
   end
 
   # New Messages from the transport_pid come in here
+  @impl true
   def handle_info({:receive, message}, state) do
     transport_receive(message, state)
     {:noreply, state}
   end
 
+  @impl true
   def handle_info(:flush, %{status: :connected} = state) do
     state =
       case :queue.out(state.queue) do
@@ -160,11 +176,13 @@ defmodule PhoenixClient.Socket do
     {:noreply, state}
   end
 
+  @impl true
   def handle_info(:flush, state) do
     :erlang.send_after(100, self(), :flush)
     {:noreply, state}
   end
 
+  @impl true
   def handle_info(:connect, state) do
     url =
       URI.parse(state.url)
@@ -176,44 +194,62 @@ defmodule PhoenixClient.Socket do
   end
 
   # Handle Errors in the transport and channels
+  @impl true
   def handle_info({:closed, reason, transport_pid}, %{transport_pid: transport_pid, reconnect_timer: nil} = state) do
     {:noreply, close(reason, state)}
   end
 
+  # Transport went down
+  @impl true
   def handle_info({:EXIT, transport_pid, reason}, %{transport_pid: transport_pid, reconnect_timer: nil} = state) do
     state = %{state | transport_pid: nil}
     {:noreply, close(reason, state)}
   end
 
-  # Unlink a channel if the process goes down
-  def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, %{channels: channels} = s) do
-    channels = Enum.reject(channels, &(elem(&1, 0) == pid))
-    {:noreply, %{s | channels: channels}}
+  # Channel went down
+  @impl true
+  def handle_info({:DOWN, _monitor_ref, :process, pid, _reason}, %{channels: channels} = state) do
+    down_channel =
+      Enum.find(channels, fn({_topic, {channel_pid, _}}) ->
+        channel_pid == pid
+      end)
+
+    case down_channel do
+      nil ->
+        {:noreply, state}
+
+      {topic, _} ->
+        message = Message.leave(topic)
+        {_push, state} = push_message(message, state)
+        channels = Map.drop(channels, [topic])
+        {:noreply, %{state | channels: channels}}
+    end
   end
 
+  @impl true
   def handle_info(_message, state) do
     {:noreply, state}
   end
 
-  defp transport_receive(message, state) do
-    %{channels: channels, json_library: json_library} = state
+  defp transport_receive(message, %{channels: channels, json_library: json_library}) do
     decoded = Message.decode!(message, json_library)
 
-    channels
-    |> Enum.filter(&elem(&1, 1) == decoded.topic)
-    |> Enum.each(&elem(&1, 0) |> send(decoded))
+    case Map.get(channels, decoded.topic) do
+      nil -> :noop
+      {channel_pid, _} -> send(channel_pid, decoded)
+    end
   end
 
   defp transport_send(message, %{transport_pid: pid, json_library: json_library}) do
     send(pid, {:send, Message.encode!(message, json_library)})
   end
 
-  defp close(reason, state) do
+  defp close(reason, %{channels: channels} = state) do
     state = %{state | status: :disconnected}
     message = %Message{event: close_event(reason), payload: %{reason: reason}}
 
-    for {pid, _channel} <- state.channels do
-      send(pid, message)
+    for {_topic, {channel_pid, _}} <- channels do
+      send(channel_pid, message)
     end
 
     if state.reconnect and state.reconnect_timer == nil do
@@ -226,4 +262,13 @@ defmodule PhoenixClient.Socket do
 
   defp close_event(:normal), do: "phx_close"
   defp close_event(_), do: "phx_error"
+
+  defp push_message(message, state) do
+    ref = state.ref + 1
+    push = %{message | ref: to_string(ref)}
+    send(self(), :flush)
+    state = %{state | ref: ref, queue: :queue.in(push, state.queue)}
+    {push, state}
+  end
+
 end
