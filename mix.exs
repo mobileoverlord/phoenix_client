@@ -16,7 +16,10 @@ defmodule PhoenixClient.Mixfile do
   end
 
   def application do
-    [applications: [:logger]]
+    [
+      extra_applications: [:logger],
+      mod: {PhoenixClient, []}
+    ]
   end
 
   defp deps do
