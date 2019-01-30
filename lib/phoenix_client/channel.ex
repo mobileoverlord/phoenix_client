@@ -90,11 +90,11 @@ defmodule PhoenixClient.Channel do
   def init({socket, topic, params}) do
     {:ok,
      %{
-        caller: nil,
-        socket: socket,
-        topic: topic,
-        params: params,
-        pushes: []
+       caller: nil,
+       socket: socket,
+       topic: topic,
+       params: params,
+       pushes: []
      }}
   end
 
@@ -166,6 +166,7 @@ defmodule PhoenixClient.Channel do
         {:ok, reply} ->
           Process.link(pid)
           {:ok, reply, pid}
+
         error ->
           stop(pid)
           error
@@ -179,5 +180,4 @@ defmodule PhoenixClient.Channel do
 
   defp exit_reason({:timeout, _}), do: :timeout
   defp exit_reason(reason), do: reason
-
 end
