@@ -1,5 +1,11 @@
 # PhoenixClient
 
+## v0.6.1
+
+* Enhancements
+  * Do not exit if a call to join results in a timeout. Instead, return
+    {:error, :timeout}.
+
 ## v0.6.0
 
 * Enhancements
