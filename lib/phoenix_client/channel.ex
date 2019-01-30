@@ -13,10 +13,6 @@ defmodule PhoenixClient.Channel do
     }
   end
 
-  def child_spec({socket, topic}) do
-    child_spec({socket, topic, %{}})
-  end
-
   @doc false
   def start_link(socket, topic, params) do
     GenServer.start_link(__MODULE__, {socket, topic, params})
@@ -40,8 +36,8 @@ defmodule PhoenixClient.Channel do
   """
   @spec join(pid | atom, binary, map, non_neg_integer) ::
           {:ok, map, pid}
-          | {:error, :socket_not_started}
-          | {:error, :socket_disconnected}
+          | {:error, :socket_not_connected}
+          | {:error, :timeout}
           | {:error, any}
   def join(socket_pid_or_name, topic, params \\ %{}, timeout \\ @timeout)
   def join(nil, _topic, _params, _timeout), do: {:error, :socket_not_started}
@@ -51,26 +47,13 @@ defmodule PhoenixClient.Channel do
   end
 
   def join(socket_pid, topic, params, timeout) do
-    if Process.alive?(socket_pid) do
-      if Socket.connected?(socket_pid) do
-        case ChannelSupervisor.start_channel(socket_pid, topic, params) do
-          {:ok, pid} ->
-            Process.link(pid)
-
-            case GenServer.call(pid, :join, timeout) do
-              {:ok, reply} ->
-                {:ok, reply, pid}
-
-              error ->
-                leave(pid)
-                error
-            end
-        end
-      else
-        {:error, :socket_disconnected}
+    if Process.alive?(socket_pid) and Socket.connected?(socket_pid) do
+      case ChannelSupervisor.start_channel(socket_pid, topic, params) do
+        {:ok, pid} -> do_join(pid, timeout)
+        error -> error
       end
     else
-      {:error, :socket_not_started}
+      {:error, :socket_not_connected}
     end
   end
 
@@ -107,11 +90,11 @@ defmodule PhoenixClient.Channel do
   def init({socket, topic, params}) do
     {:ok,
      %{
-       sender: nil,
-       socket: socket,
-       topic: topic,
-       params: params,
-       pushes: []
+        caller: nil,
+        socket: socket,
+        topic: topic,
+        params: params,
+        pushes: []
      }}
   end
 
@@ -123,7 +106,7 @@ defmodule PhoenixClient.Channel do
       ) do
     case Socket.channel_join(socket, self(), topic, params) do
       {:ok, push} ->
-        {:noreply, %{state | sender: pid, pushes: [{from, push} | state.pushes]}}
+        {:noreply, %{state | caller: pid, pushes: [{from, push} | state.pushes]}}
 
       error ->
         {:reply, error, state}
@@ -172,8 +155,29 @@ defmodule PhoenixClient.Channel do
   end
 
   @impl true
-  def handle_info(%Message{} = message, %{sender: pid, topic: topic} = state) do
+  def handle_info(%Message{} = message, %{caller: pid, topic: topic} = state) do
     send(pid, %{message | channel_pid: pid, topic: topic})
     {:noreply, state}
   end
+
+  defp do_join(pid, timeout) do
+    try do
+      case GenServer.call(pid, :join, timeout) do
+        {:ok, reply} ->
+          Process.link(pid)
+          {:ok, reply, pid}
+        error ->
+          stop(pid)
+          error
+      end
+    catch
+      :exit, reason ->
+        stop(pid)
+        {:error, exit_reason(reason)}
+    end
+  end
+
+  defp exit_reason({:timeout, _}), do: :timeout
+  defp exit_reason(reason), do: reason
+
 end

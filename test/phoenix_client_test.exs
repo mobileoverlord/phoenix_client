@@ -30,6 +30,11 @@ defmodule PhoenixClientTest do
     use Phoenix.Channel
     require Logger
 
+    def join("rooms:join_timeout", message, socket) do
+      :timer.sleep(50)
+      {:ok, message, socket}
+    end
+
     def join("rooms:reply", message, socket) do
       {:ok, message, socket}
     end
@@ -168,6 +173,12 @@ defmodule PhoenixClientTest do
     wait_for_socket(socket)
     {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
     assert {:ok, %{"test" => "test"}} = Channel.push(channel, "new:msg", %{test: :test})
+  end
+
+  test "join timeouts" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    {:error, :timeout} = Channel.join(socket, "rooms:join_timeout", %{}, 1)
   end
 
   test "push timeouts" do
