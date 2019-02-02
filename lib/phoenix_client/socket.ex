@@ -59,7 +59,16 @@ defmodule PhoenixClient.Socket do
     json_library = Keyword.get(opts, :json_library, Jason)
 
     reconnect? = Keyword.get(opts, :reconnect?, true)
-    url = Keyword.get(opts, :url, "")
+
+    params = Keyword.get(opts, :params, %{})
+
+    url =
+      Keyword.get(opts, :url, "")
+      |> URI.parse()
+      |> URI.merge("?vsn=2.0.0")
+      |> URI.merge(URI.encode_query(params))
+      |> to_string
+
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
@@ -77,7 +86,7 @@ defmodule PhoenixClient.Socket do
        opts: opts,
        url: url,
        json_library: json_library,
-       params: Keyword.get(opts, :params, %{}),
+       params: params,
        channels: %{},
        reconnect: reconnect?,
        heartbeat_interval: heartbeat_interval,
@@ -189,14 +198,14 @@ defmodule PhoenixClient.Socket do
   end
 
   @impl true
-  def handle_info(:connect, state) do
-    url =
-      URI.parse(state.url)
-      |> Map.put(:query, URI.encode_query(state.params))
-      |> to_string
+  def handle_info(:connect, %{transport: transport, transport_opts: opts} = state) do
+    case transport.open(state.url, opts) do
+      {:ok, transport_pid} ->
+        {:noreply, %{state | transport_pid: transport_pid, reconnect_timer: nil}}
 
-    {:ok, pid} = state[:transport].open(url, state[:transport_opts])
-    {:noreply, %{state | transport_pid: pid, reconnect_timer: nil}}
+      {:error, reason} ->
+        {:noreply, close(reason, state)}
+  end
   end
 
   # Handle Errors in the transport and channels

@@ -1,24 +1,26 @@
 defmodule PhoenixClient.Message do
-  @derive {Jason.Encoder, only: [:topic, :event, :payload, :ref]}
   defstruct topic: nil,
             event: nil,
             payload: nil,
             channel_pid: nil,
-            ref: nil
+            ref: nil,
+            join_ref: nil
 
-  def decode!(message, json_library) do
-    decoded = json_library.decode!(message)
+  def decode!(msg, json_library) do
+    [join_ref, ref, topic, event, payload | _] = json_library.decode!(msg)
 
     %__MODULE__{
-      topic: decoded["topic"],
-      event: decoded["event"],
-      payload: decoded["payload"],
-      ref: decoded["ref"]
+      join_ref: join_ref,
+      ref: ref,
+      topic: topic,
+      event: event,
+      payload: payload
     }
   end
 
-  def encode!(message, json_library) do
-    json_library.encode!(message)
+  def encode!(%__MODULE__{} = msg, json_library) do
+    [msg.join_ref, msg.ref, msg.topic, msg.event, msg.payload]
+    |> json_library.encode!()
   end
 
   def join(topic, params) do

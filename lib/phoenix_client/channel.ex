@@ -94,7 +94,8 @@ defmodule PhoenixClient.Channel do
        socket: socket,
        topic: topic,
        params: params,
-       pushes: []
+       pushes: [],
+       join_ref: nil
      }}
   end
 
@@ -106,7 +107,8 @@ defmodule PhoenixClient.Channel do
       ) do
     case Socket.channel_join(socket, self(), topic, params) do
       {:ok, push} ->
-        {:noreply, %{state | caller: pid, pushes: [{from, push} | state.pushes]}}
+        {:noreply,
+         %{state | join_ref: push.ref, caller: pid, pushes: [{from, push} | state.pushes]}}
 
       error ->
         {:reply, error, state}
@@ -125,7 +127,8 @@ defmodule PhoenixClient.Channel do
       Socket.push(socket, %Message{
         topic: topic,
         event: event,
-        payload: payload
+        payload: payload,
+        join_ref: state.join_ref
       })
 
     {:noreply, %{state | pushes: [{from, push} | state.pushes]}}
@@ -133,7 +136,14 @@ defmodule PhoenixClient.Channel do
 
   @impl true
   def handle_cast({:push, event, payload}, %{socket: socket, topic: topic} = state) do
-    message = %Message{topic: topic, event: event, payload: payload, channel_pid: self()}
+    message = %Message{
+      topic: topic,
+      event: event,
+      payload: payload,
+      channel_pid: self(),
+      join_ref: state.join_ref
+    }
+
     Socket.push(socket, message)
     {:noreply, state}
   end
