@@ -1,5 +1,11 @@
 # PhoenixClient
 
+## v0.7.0
+
+* Enhancements
+  * Update to use the Phoenix message protocol version 2.0.0
+  * Improved socket disconnect handling
+
 ## v0.6.1
 
 * Enhancements
