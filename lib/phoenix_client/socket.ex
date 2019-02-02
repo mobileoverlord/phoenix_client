@@ -77,8 +77,6 @@ defmodule PhoenixClient.Socket do
       Keyword.get(opts, :transport_opts, [])
       |> Keyword.put(:sender, self())
 
-    Process.flag(:trap_exit, true)
-
     send(self(), :connect)
 
     {:ok,
@@ -152,6 +150,10 @@ defmodule PhoenixClient.Socket do
     {:noreply, %{state | status: :connected}}
   end
 
+  def handle_info({:disconnected, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
+    {:noreply, close(reason, state)}
+  end
+
   @impl true
   def handle_info(:heartbeat, %{status: :connected} = state) do
     ref = state.ref + 1
@@ -205,25 +207,15 @@ defmodule PhoenixClient.Socket do
 
       {:error, reason} ->
         {:noreply, close(reason, state)}
-  end
+    end
   end
 
   # Handle Errors in the transport and channels
   @impl true
   def handle_info(
         {:closed, reason, transport_pid},
-        %{transport_pid: transport_pid, reconnect_timer: nil} = state
+        %{transport_pid: transport_pid} = state
       ) do
-    {:noreply, close(reason, state)}
-  end
-
-  # Transport went down
-  @impl true
-  def handle_info(
-        {:EXIT, transport_pid, reason},
-        %{transport_pid: transport_pid, reconnect_timer: nil} = state
-      ) do
-    state = %{state | transport_pid: nil}
     {:noreply, close(reason, state)}
   end
 
@@ -247,11 +239,6 @@ defmodule PhoenixClient.Socket do
     end
   end
 
-  @impl true
-  def handle_info(_message, state) do
-    {:noreply, state}
-  end
-
   defp transport_receive(message, %{channels: channels, json_library: json_library}) do
     decoded = Message.decode!(message, json_library)
 
@@ -265,15 +252,16 @@ defmodule PhoenixClient.Socket do
     send(pid, {:send, Message.encode!(message, json_library)})
   end
 
-  defp close(reason, %{channels: channels} = state) do
+  defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
     state = %{state | status: :disconnected}
+
     message = %Message{event: close_event(reason), payload: %{reason: reason}}
 
     for {_topic, {channel_pid, _}} <- channels do
       send(channel_pid, message)
     end
 
-    if state.reconnect and state.reconnect_timer == nil do
+    if state.reconnect do
       timer_ref = Process.send_after(self(), :connect, state.reconnect_interval)
       %{state | reconnect_timer: timer_ref}
     else

@@ -1,6 +1,8 @@
 defmodule PhoenixClient.Transports.Websocket do
   @behaviour PhoenixClient.Transport
 
+  require Logger
+
   def open(url, transport_opts) do
     :websocket_client.start_link(
       String.to_charlist(url),
@@ -27,12 +29,9 @@ defmodule PhoenixClient.Transports.Websocket do
     {:ok, state}
   end
 
-  def ondisconnect({:remote, :closed}, state) do
+  def ondisconnect(reason, state) do
+    send(state.sender, {:disconnected, reason, self()})
     {:close, :normal, state}
-  end
-
-  def ondisconnect({:error, reason}, state) do
-    {:close, reason, state}
   end
 
   @doc """
@@ -41,6 +40,11 @@ defmodule PhoenixClient.Transports.Websocket do
   """
   def websocket_handle({:text, msg}, _conn_state, state) do
     send(state.sender, {:receive, msg})
+    {:ok, state}
+  end
+
+  def websocket_handle(other_msg, _req, state) do
+    Logger.warn(fn -> "Unknown message #{inspect(other_msg)}" end)
     {:ok, state}
   end
 
@@ -56,8 +60,11 @@ defmodule PhoenixClient.Transports.Websocket do
     {:close, <<>>, "done"}
   end
 
-  def websocket_terminate(reason, _conn_state, state) do
-    send(state.sender, {:closed, reason, self()})
+  def websocket_info(_message, _req, state) do
+    {:ok, state}
+  end
+
+  def websocket_terminate(_reason, _conn_state, _state) do
     :ok
   end
 end
