@@ -62,12 +62,7 @@ defmodule PhoenixClient.Socket do
 
     params = Keyword.get(opts, :params, %{})
 
-    url =
-      Keyword.get(opts, :url, "")
-      |> URI.parse()
-      |> URI.merge("?vsn=2.0.0")
-      |> URI.merge(URI.encode_query(params))
-      |> to_string
+    url = Keyword.get(opts, :url, "")
 
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
