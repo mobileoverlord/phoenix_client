@@ -151,7 +151,7 @@ defmodule PhoenixClient.Channel do
   @impl true
   def handle_info(%Message{event: "phx_reply", ref: ref} = msg, %{pushes: pushes} = s) do
     IO.inspect(111111111111111111111111)
-    IO.inspect(message)
+    IO.inspect(msg)
     pushes =
       case Enum.split_with(pushes, &(elem(&1, 1).ref == ref)) do
         {[{from_ref, _push}], pushes} ->
