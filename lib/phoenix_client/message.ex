@@ -6,20 +6,16 @@ defmodule PhoenixClient.Message do
             ref: nil,
             join_ref: nil
 
-  def decode!(msg, json_library) do
-    [join_ref, ref, topic, event, payload | _] = json_library.decode!(msg)
+  def serializer("1.0.0"), do: __MODULE__.V1
+  def serializer("2.0.0"), do: __MODULE__.V2
 
-    %__MODULE__{
-      join_ref: join_ref,
-      ref: ref,
-      topic: topic,
-      event: event,
-      payload: payload
-    }
+  def decode!(serializer, msg, json_library) do
+    json_library.decode!(msg)
+    |> serializer.decode!()
   end
 
-  def encode!(%__MODULE__{} = msg, json_library) do
-    [msg.join_ref, msg.ref, msg.topic, msg.event, msg.payload]
+  def encode!(serializer, %__MODULE__{} = msg, json_library) do
+    serializer.encode!(msg)
     |> json_library.encode!()
   end
 

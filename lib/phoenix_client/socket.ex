@@ -57,16 +57,16 @@ defmodule PhoenixClient.Socket do
     transport = opts[:transport] || @default_transport
 
     json_library = Keyword.get(opts, :json_library, Jason)
-
     reconnect? = Keyword.get(opts, :reconnect?, true)
-
     params = Keyword.get(opts, :params, %{})
+    protocol_vsn = Keyword.get(opts, :vsn, "2.0.0")
+    serializer = Message.serializer(protocol_vsn)
+    params = Map.put(params, "vsn", protocol_vsn)
 
     url =
       Keyword.get(opts, :url, "")
       |> URI.parse()
-      |> URI.merge("?vsn=2.0.0")
-      |> URI.merge(URI.encode_query(params))
+      |> URI.merge("?" <> URI.encode_query(params))
       |> to_string
 
     opts = Keyword.put_new(opts, :headers, [])
@@ -91,6 +91,7 @@ defmodule PhoenixClient.Socket do
        reconnect_interval: reconnect_interval,
        reconnect_timer: nil,
        status: :disconnected,
+       serializer: serializer,
        transport: transport,
        transport_opts: transport_opts,
        transport_pid: nil,
@@ -239,8 +240,8 @@ defmodule PhoenixClient.Socket do
     end
   end
 
-  defp transport_receive(message, %{channels: channels, json_library: json_library}) do
-    decoded = Message.decode!(message, json_library)
+  defp transport_receive(message, %{channels: channels, serializer: serializer, json_library: json_library}) do
+    decoded = Message.decode!(serializer, message, json_library)
 
     case Map.get(channels, decoded.topic) do
       nil -> :noop
@@ -248,8 +249,8 @@ defmodule PhoenixClient.Socket do
     end
   end
 
-  defp transport_send(message, %{transport_pid: pid, json_library: json_library}) do
-    send(pid, {:send, Message.encode!(message, json_library)})
+  defp transport_send(message, %{transport_pid: pid, serializer: serializer, json_library: json_library}) do
+    send(pid, {:send, Message.encode!(serializer, message, json_library)})
   end
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
