@@ -204,6 +204,18 @@ defmodule PhoenixClientTest do
       |> Keyword.put(:caller, self())
 
     {:ok, socket} = Socket.start_link(opts)
+    :timer.sleep(100)
+    refute Socket.connected?(socket)
+  end
+
+  test "socket params can be set in url" do
+    opts = [
+      url: "ws://127.0.0.1:#{@port}/ws/admin/websocket?reject=true",
+      serializer: Jason,
+      caller: self()
+    ]
+    {:ok, socket} = Socket.start_link(opts)
+    :timer.sleep(100)
     refute Socket.connected?(socket)
   end
 

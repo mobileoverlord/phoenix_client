@@ -58,16 +58,28 @@ defmodule PhoenixClient.Socket do
 
     json_library = Keyword.get(opts, :json_library, Jason)
     reconnect? = Keyword.get(opts, :reconnect?, true)
-    params = Keyword.get(opts, :params, %{})
+
     protocol_vsn = Keyword.get(opts, :vsn, "2.0.0")
     serializer = Message.serializer(protocol_vsn)
-    params = Map.put(params, "vsn", protocol_vsn)
+
+    uri =
+      opts
+      |> Keyword.get(:url, "")
+      |> URI.parse()
+
+    params = Keyword.get(opts, :params, %{})
+
+    query =
+      (uri.query || "")
+      |> URI.decode_query()
+      |> Map.put("vsn", protocol_vsn)
+      |> Map.merge(params)
+      |> URI.encode_query()
 
     url =
-      Keyword.get(opts, :url, "")
-      |> URI.parse()
-      |> URI.merge("?" <> URI.encode_query(params))
-      |> to_string
+      uri
+      |> Map.put(:query, query)
+      |> to_string()
 
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
