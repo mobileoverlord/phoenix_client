@@ -252,7 +252,11 @@ defmodule PhoenixClient.Socket do
     end
   end
 
-  defp transport_receive(message, %{channels: channels, serializer: serializer, json_library: json_library}) do
+  defp transport_receive(message, %{
+         channels: channels,
+         serializer: serializer,
+         json_library: json_library
+       }) do
     decoded = Message.decode!(serializer, message, json_library)
 
     case Map.get(channels, decoded.topic) do
@@ -261,7 +265,11 @@ defmodule PhoenixClient.Socket do
     end
   end
 
-  defp transport_send(message, %{transport_pid: pid, serializer: serializer, json_library: json_library}) do
+  defp transport_send(message, %{
+         transport_pid: pid,
+         serializer: serializer,
+         json_library: json_library
+       }) do
     send(pid, {:send, Message.encode!(serializer, message, json_library)})
   end
 

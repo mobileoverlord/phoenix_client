@@ -214,6 +214,7 @@ defmodule PhoenixClientTest do
       serializer: Jason,
       caller: self()
     ]
+
     {:ok, socket} = Socket.start_link(opts)
     :timer.sleep(100)
     refute Socket.connected?(socket)
