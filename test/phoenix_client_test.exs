@@ -23,7 +23,8 @@ defmodule PhoenixClientTest do
 
   @socket_config [
     url: "ws://127.0.0.1:#{@port}/ws/admin/websocket",
-    serializer: Jason
+    serializer: Jason,
+    reconnect_interval: 10
   ]
 
   defmodule RoomChannel do
@@ -49,6 +50,10 @@ defmodule PhoenixClientTest do
     def handle_info({:after_join, message}, socket) do
       broadcast(socket, "user:entered", %{user: message["user"]})
       push(socket, "joined", Map.merge(%{status: "connected"}, socket.assigns))
+      {:noreply, socket}
+    end
+
+    def handle_info(_, socket) do
       {:noreply, socket}
     end
 
@@ -121,12 +126,11 @@ defmodule PhoenixClientTest do
     plug(Router)
   end
 
-  require Logger
-
   setup_all do
-    capture_log(fn -> Endpoint.start_link() end)
-    :ok
+    start_endpoint()
   end
+
+  require Logger
 
   test "socket can join a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
@@ -220,9 +224,42 @@ defmodule PhoenixClientTest do
     refute Socket.connected?(socket)
   end
 
-  def wait_for_socket(socket) do
+  test "rejoin", context do
+    endpoint = context[:endpoint]
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+
+    Process.exit(endpoint, :kill)
+    :timer.sleep(10)
+
+    assert_receive %Message{event: "phx_error"}
+    refute Socket.connected?(socket)
+
+    start_endpoint()
+    wait_for_socket(socket)
+    :sys.get_state(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+  end
+
+  defp wait_for_socket(socket) do
     unless Socket.connected?(socket) do
       wait_for_socket(socket)
+    end
+  end
+
+  defp start_endpoint() do
+    self = self()
+
+    capture_log(fn ->
+      {:ok, pid} = Endpoint.start_link()
+      send(self, {:pid, pid})
+    end)
+
+    receive do
+      {:pid, pid} ->
+        Process.unlink(pid)
+        [endpoint: pid]
     end
   end
 end

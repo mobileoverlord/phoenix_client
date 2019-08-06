@@ -274,7 +274,7 @@ defmodule PhoenixClient.Socket do
   end
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
-    state = %{state | status: :disconnected}
+    state = %{state | status: :disconnected, channels: %{}}
 
     message = %Message{event: close_event(reason), payload: %{reason: reason}}
 
