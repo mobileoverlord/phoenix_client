@@ -1,5 +1,14 @@
 # PhoenixClient
 
+## v0.8.0
+
+* Enhancements
+  * Add support for v1 and v2 phoenix channel message protocol.
+* Bug fixes
+  * Remove the channels from the socket when disconnecting.
+  * Merge query params from original url when constructing new connection
+    url.
+
 ## v0.7.0
 
 * Enhancements
