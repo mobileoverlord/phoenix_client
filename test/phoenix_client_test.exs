@@ -126,6 +126,63 @@ defmodule PhoenixClientTest do
     plug(Router)
   end
 
+  defmodule ClientServer do
+    use GenServer
+
+    def start(opts \\ []) do
+      GenServer.start(__MODULE__, [], opts)
+    end
+
+    def push(pid, message) do
+      GenServer.cast(pid, {:push, message})
+    end
+
+    def messages(pid) do
+      GenServer.call(pid, :messages)
+    end
+
+    @impl true
+    def init(_) do
+      state = %{
+        socket: nil,
+        channel: nil,
+        messages: []
+      }
+
+      {:ok, state, {:continue, :connect_to_channel}}
+    end
+
+    @impl true
+    def handle_continue(:connect_to_channel, state) do
+      {:ok, socket} = Socket.start_link(PhoenixClientTest.socket_config())
+      PhoenixClientTest.wait_for_socket(socket)
+      {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+
+      {:noreply, %{state | channel: channel, socket: socket}}
+    end
+
+    @impl true
+    def handle_cast({:push, message}, %{channel: channel} = state) do
+      Channel.push_async(channel, "new:msg", message)
+      {:noreply, state}
+    end
+
+    @impl true
+    def handle_call(:messages, _from, %{messages: messages} = state) do
+      {:reply, messages, state}
+    end
+
+    @impl true
+    def handle_info(%Message{payload: payload}, %{messages: messages} = state) do
+      {:noreply, %{state | messages: [payload | messages]}}
+    end
+
+    @impl true
+    def handle_info(_, state) do
+      {:noreply, state}
+    end
+  end
+
   setup_all do
     start_endpoint()
   end
@@ -242,11 +299,34 @@ defmodule PhoenixClientTest do
     assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
   end
 
-  defp wait_for_socket(socket) do
+  test "use async with genserver" do
+    {:ok, pid} = ClientServer.start()
+    ClientServer.push(pid, %{test: :test})
+    assert assert_message(pid, %{"response" => %{"test" => "test"}, "status" => "ok"})
+    Process.exit(pid, :kill)
+  end
+
+  defp assert_message(pid, message, counter \\ 0)
+  defp assert_message(_pid, _message, 10), do: false
+
+  defp assert_message(pid, message, counter) do
+    messages = ClientServer.messages(pid)
+
+    if Enum.any?(messages, &(&1 == message)) do
+      true
+    else
+      :timer.sleep(10)
+      assert_message(pid, message, counter + 1)
+    end
+  end
+
+  def wait_for_socket(socket) do
     unless Socket.connected?(socket) do
       wait_for_socket(socket)
     end
   end
+
+  def socket_config(), do: @socket_config
 
   defp start_endpoint() do
     self = self()

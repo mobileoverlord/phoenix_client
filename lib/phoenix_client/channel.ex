@@ -158,6 +158,7 @@ defmodule PhoenixClient.Channel do
           pushes
 
         {_, pushes} ->
+          send(s.caller, %{msg | channel_pid: s.caller, topic: s.topic})
           pushes
       end
 
