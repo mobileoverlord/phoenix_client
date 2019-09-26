@@ -1,5 +1,12 @@
 # PhoenixClient
 
+## v0.9.0
+
+* Enhancements
+  * All out of band reply messages are delivered to the channel's caller
+    as broadcast messages. This allows the use of `push_async` to send
+    messages to the server that may `:reply` in an indeterminate amount of time.
+
 ## v0.8.0
 
 * Enhancements

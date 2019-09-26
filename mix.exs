@@ -4,7 +4,7 @@ defmodule PhoenixClient.Mixfile do
   def project do
     [
       app: :phoenix_client,
-      version: "0.8.0",
+      version: "0.9.0",
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
