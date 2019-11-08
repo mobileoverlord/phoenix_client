@@ -28,9 +28,9 @@ defmodule PhoenixClient.Socket do
     GenServer.stop(pid)
   end
 
-  @spec connected?(pid) :: boolean
-  def connected?(pid) do
-    GenServer.call(pid, :status) == :connected
+  @spec connected?(pid | atom) :: boolean
+  def connected?(pid_or_name) do
+    GenServer.call(pid_or_name, :status) == :connected
   end
 
   @doc false
