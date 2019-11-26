@@ -88,6 +88,7 @@ defmodule PhoenixClient.Socket do
     transport_opts =
       Keyword.get(opts, :transport_opts, [])
       |> Keyword.put(:sender, self())
+      |> Keyword.put(:extra_headers, Keyword.get(opts, :headers))
 
     send(self(), :connect)
 
