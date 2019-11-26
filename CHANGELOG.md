@@ -1,5 +1,11 @@
 # PhoenixClient
 
+## v0.10.0
+
+* Enhancements
+  * Extra headers can be added to the initial socket connection through the
+    `socket_opts` using the key `headers: [{"header-name", "value"}]`
+
 ## v0.9.0
 
 * Enhancements
