@@ -26,7 +26,7 @@ defmodule PhoenixClient.Mixfile do
     [
       {:websocket_client, "~> 1.3", optional: true},
       {:jason, "~> 1.0", optional: true},
-      {:phoenix, github: "phoenixframework/phoenix", tag: "v1.4.9", only: :test},
+      {:phoenix, github: "phoenixframework/phoenix", tag: "v1.4.11", only: :test},
       {:plug_cowboy, "~> 2.0", only: :test},
       {:ex_doc, "~> 0.18", only: :dev}
     ]
