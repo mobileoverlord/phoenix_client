@@ -31,6 +31,10 @@ defmodule PhoenixClientTest do
     use Phoenix.Channel
     require Logger
 
+    def join("rooms:headers", _message, socket) do
+      {:ok, socket.assigns.headers, socket}
+    end
+
     def join("rooms:join_timeout", message, socket) do
       :timer.sleep(50)
       {:ok, message, socket}
@@ -84,16 +88,25 @@ defmodule PhoenixClientTest do
 
     channel("rooms:*", RoomChannel)
 
-    def connect(%{"reject" => "true"}, _socket) do
+    def connect(%{"reject" => "true"}, _socket, _connect_info) do
       :error
     end
 
-    def connect(params, socket) do
-      {:ok, assign(socket, :user_id, params["user_id"])}
+    def connect(params, socket, %{x_headers: headers}) do
+      socket =
+        socket
+        |> assign(:user_id, params["user_id"])
+        |> assign(:headers, encode_headers(headers))
+
+      {:ok, socket}
     end
 
     def id(socket) do
       if id = socket.assigns.user_id, do: "user_sockets:#{id}"
+    end
+
+    defp encode_headers(headers) do
+      Enum.reduce(headers, %{}, &Map.put(&2, elem(&1, 0), elem(&1, 1)))
     end
   end
 
@@ -105,8 +118,11 @@ defmodule PhoenixClientTest do
       super(conn, opts)
     end
 
-    socket("/ws", UserSocket, websocket: [origins: ["//example.com"]])
-    socket("/ws/admin", UserSocket, websocket: [origins: ["//example.com"]])
+    socket("/ws", UserSocket, websocket: [origins: ["//example.com"], connect_info: [:x_headers]])
+
+    socket("/ws/admin", UserSocket,
+      websocket: [origins: ["//example.com"], connect_info: [:x_headers]]
+    )
 
     plug(
       Plug.Parsers,
@@ -304,6 +320,14 @@ defmodule PhoenixClientTest do
     ClientServer.push(pid, %{test: :test})
     assert assert_message(pid, %{"response" => %{"test" => "test"}, "status" => "ok"})
     Process.exit(pid, :kill)
+  end
+
+  test "pass extra headers" do
+    config = Keyword.put(@socket_config, :headers, [{"x-extra", "value"}])
+    {:ok, socket} = Socket.start_link(config)
+    wait_for_socket(socket)
+    {:ok, headers, _channel} = Channel.join(socket, "rooms:headers")
+    assert %{"x-extra" => "value"} = headers
   end
 
   defp assert_message(pid, message, counter \\ 0)
