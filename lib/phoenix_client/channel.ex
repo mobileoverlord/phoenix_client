@@ -63,7 +63,6 @@ defmodule PhoenixClient.Channel do
   @spec leave(pid) :: :ok
   def leave(pid) do
     GenServer.call(pid, :leave)
-    GenServer.stop(pid)
   end
 
   @doc """
@@ -118,7 +117,7 @@ defmodule PhoenixClient.Channel do
   @impl true
   def handle_call(:leave, _from, %{socket: socket, topic: topic} = state) do
     Socket.channel_leave(socket, self(), topic)
-    {:reply, :ok, state}
+    {:stop, :normal, :ok, state}
   end
 
   @impl true
@@ -163,6 +162,15 @@ defmodule PhoenixClient.Channel do
       end
 
     {:noreply, %{s | pushes: pushes}}
+  end
+
+  @close_events ["phx_close", "phx_error"]
+
+  @impl true
+  def handle_info(%Message{event: event} = message, %{caller: pid, topic: topic} = state)
+      when event in @close_events do
+    send(pid, %{message | channel_pid: pid, topic: topic})
+    {:stop, :normal, state}
   end
 
   @impl true

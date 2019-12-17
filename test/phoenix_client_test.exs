@@ -1,7 +1,6 @@
 defmodule PhoenixClientTest do
   use ExUnit.Case, async: false
   use RouterHelper
-  import ExUnit.CaptureLog
   import Plug.Conn, except: [assign: 3, push: 3]
 
   alias __MODULE__.Endpoint
@@ -304,14 +303,27 @@ defmodule PhoenixClientTest do
     assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
 
     Process.exit(endpoint, :kill)
-    :timer.sleep(10)
+    :timer.sleep(100)
 
     assert_receive %Message{event: "phx_error"}
     refute Socket.connected?(socket)
+    refute Process.alive?(channel)
 
     start_endpoint()
     wait_for_socket(socket)
-    :sys.get_state(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+  end
+
+  test "closes channel when error" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    Channel.push_async(channel, "boom", %{})
+
+    assert_receive %Message{event: "phx_error"}
+
+    :timer.sleep(10)
+    refute Process.alive?(channel)
     assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
   end
 
@@ -353,17 +365,8 @@ defmodule PhoenixClientTest do
   def socket_config(), do: @socket_config
 
   defp start_endpoint() do
-    self = self()
-
-    capture_log(fn ->
-      {:ok, pid} = Endpoint.start_link()
-      send(self, {:pid, pid})
-    end)
-
-    receive do
-      {:pid, pid} ->
-        Process.unlink(pid)
-        [endpoint: pid]
-    end
+    {:ok, pid} = Endpoint.start_link()
+    Process.unlink(pid)
+    [endpoint: pid]
   end
 end
