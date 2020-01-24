@@ -88,7 +88,6 @@ defmodule PhoenixClient.Socket do
     transport_opts =
       Keyword.get(opts, :transport_opts, [])
       |> Keyword.put(:sender, self())
-      |> Keyword.put(:extra_headers, Keyword.get(opts, :headers))
 
     send(self(), :connect)
 
@@ -214,8 +213,10 @@ defmodule PhoenixClient.Socket do
   end
 
   @impl true
-  def handle_info(:connect, %{transport: transport, transport_opts: opts} = state) do
-    case transport.open(state.url, opts) do
+  def handle_info(:connect, %{opts: opts, transport: transport, transport_opts: transport_opts} = state) do
+    transport_opts = Keyword.put(transport_opts, :extra_headers, headers(opts))
+
+    case transport.open(state.url, transport_opts) do
       {:ok, transport_pid} ->
         {:noreply, %{state | transport_pid: transport_pid, reconnect_timer: nil}}
 
@@ -300,5 +301,19 @@ defmodule PhoenixClient.Socket do
     send(self(), :flush)
     state = %{state | ref: ref, queue: :queue.in(push, state.queue)}
     {push, state}
+  end
+
+  defp headers(opts) when is_list(opts) do
+    if dynamic_headers?(opts) do
+      Keyword.get(opts, :headers).()
+    else
+      Keyword.get(opts, :headers)
+    end
+  end
+
+  defp dynamic_headers?(opts) do
+    opts
+    |> Keyword.get(:headers)
+    |> is_function()
   end
 end
