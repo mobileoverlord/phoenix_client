@@ -104,6 +104,44 @@ flush
 }
 ```
 
+If you want to be notified whenever the library connects and disconnects, you
+can provide a `report_events` in the `socket_opts` when creating the
+`PhoenixClient.Socket`:
+
+```elixir
+socket_opts = [
+  url: "...",
+  report_events: true
+]
+
+{:ok, socket} = PhoenixClient.Socket.start_link(socket_opts)
+```
+
+The process that called `start_link` will be sent `{:phoenix_client,
+:connected}` and `{:phoenix_client, :disconnected}` messages that must be
+handled. A common use case would be to re-join channels as soon as the
+connection is re-established. For example:
+
+```elixir
+# In this example, we're in the context of a GenServer, and the state
+# of the GenServer contains the socket and a single channel.
+
+def handle_info({:phoenix_client, :disconnected}, state) do
+  # No-op on disconnect, because phoenix_client handles automatic reconnect
+  {:noreply, state}
+end
+
+def handle_info({:phoenix_client, :connected}, state) do
+  # Re-join the channel now that the connection is re-established
+  {:ok, _response, channel} = PhoenixClient.Channel.join(socket, "rooms:lobby")
+
+  # Store the channel in state so we can push to it later
+  state = %{state | channel: channel}
+
+  {:noreply, state}
+end
+```
+
 ### Common configuration
 
 You can configure the socket to be started in your main application supervisor.
