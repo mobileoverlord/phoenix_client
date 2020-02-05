@@ -68,6 +68,10 @@ defmodule PhoenixClientTest do
       raise "boom"
     end
 
+    def handle_in("stop", message, socket) do
+      {:stop, :normal, {:ok, message}, socket}
+    end
+
     def handle_in(_, _message, socket) do
       {:noreply, socket}
     end
@@ -171,7 +175,8 @@ defmodule PhoenixClientTest do
     def handle_continue(:connect_to_channel, state) do
       {:ok, socket} = Socket.start_link(PhoenixClientTest.socket_config())
       PhoenixClientTest.wait_for_socket(socket)
-      {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+      {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+      PhoenixClientTest.wait_for_channel(channel)
 
       {:noreply, %{state | channel: channel, socket: socket}}
     end
@@ -207,13 +212,16 @@ defmodule PhoenixClientTest do
   test "socket can join a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
+    assert Channel.joined?(channel)
   end
 
   test "socket cannot join more than one channel of the same topic" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
     assert {:error, {:already_joined, ^channel}} = Channel.join(socket, "rooms:admin-lobby")
   end
 
@@ -221,7 +229,25 @@ defmodule PhoenixClientTest do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
     message = %{"foo" => "bar"}
-    assert {:ok, ^message, _channel} = Channel.join(socket, "rooms:reply", message)
+    assert {:ok, channel} = Channel.join(socket, "rooms:reply", message)
+    wait_for_channel(channel)
+
+    assert_receive %Message{
+      ref: ref,
+      join_ref: ref,
+      payload: %{"response" => ^message, "status" => "ok"}
+    }
+  end
+
+  test "socket can join a channel waiting for an specific amount of time" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    message = %{"foo" => "bar"}
+    assert {:ok, channel} = Channel.join(socket, "rooms:reply", message, first_join_ms: 400)
+    Process.sleep(200)
+    refute Channel.joined?(channel)
+    Process.sleep(200)
+    assert_receive %Message{payload: %{"response" => ^message, "status" => "ok"}}
   end
 
   test "return an error if socket is down" do
@@ -232,14 +258,16 @@ defmodule PhoenixClientTest do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
     user_id = "123"
-    assert {:ok, _, _} = Channel.join(socket, "rooms:admin-lobby", %{user: user_id})
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby", %{user: user_id})
+    wait_for_channel(channel)
     assert_receive %Message{event: "user:entered", payload: %{"user" => ^user_id}}
   end
 
   test "socket can leave a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
     assert :ok = Channel.leave(channel)
     refute Process.alive?(channel)
   end
@@ -247,20 +275,16 @@ defmodule PhoenixClientTest do
   test "client can push to a channel" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
     assert {:ok, %{"test" => "test"}} = Channel.push(channel, "new:msg", %{test: :test})
-  end
-
-  test "join timeouts" do
-    {:ok, socket} = Socket.start_link(@socket_config)
-    wait_for_socket(socket)
-    {:error, :timeout} = Channel.join(socket, "rooms:join_timeout", %{}, 1)
   end
 
   test "push timeouts" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
 
     assert catch_exit(Channel.push(channel, "foo:bar", %{}, 500))
   end
@@ -268,9 +292,11 @@ defmodule PhoenixClientTest do
   test "push async" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    {:ok, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
 
-    assert :ok = Channel.push_async(channel, "foo:bar", %{})
+    assert :ok = Channel.push_async(channel, "new:msg", %{test: :test})
+    assert_receive %Message{payload: %{"response" => %{"test" => "test"}}}
   end
 
   test "socket params can be sent" do
@@ -300,31 +326,56 @@ defmodule PhoenixClientTest do
     endpoint = context[:endpoint]
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    opts = [backoff_buckets: [], max_backoff: 100]
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby", %{}, opts)
+    wait_for_channel(channel)
 
     Process.exit(endpoint, :kill)
     :timer.sleep(100)
 
     assert_receive %Message{event: "phx_error"}
+    assert Process.alive?(socket)
     refute Socket.connected?(socket)
-    refute Process.alive?(channel)
+    assert Process.alive?(channel)
+    refute Channel.joined?(channel)
 
     start_endpoint()
     wait_for_socket(socket)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    wait_for_channel(channel)
+    assert {:error, {:already_joined, ^channel}} = Channel.join(socket, "rooms:admin-lobby")
   end
 
-  test "closes channel when error" do
+  test "closes channel when normal server stop" do
     {:ok, socket} = Socket.start_link(@socket_config)
     wait_for_socket(socket)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    opts = [backoff_buckets: [], max_backoff: 100]
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby", %{}, opts)
+    wait_for_channel(channel)
+
+    Channel.push_async(channel, "stop", %{test: :test})
+
+    assert_receive %Message{payload: %{"response" => %{"test" => "test"}, "status" => "ok"}}
+    assert_receive %Message{event: "phx_close"}
+
+    refute Process.alive?(channel)
+  end
+
+  test "rejoin channel when error" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+    opts = [backoff_buckets: [], max_backoff: 100]
+    assert {:ok, channel} = Channel.join(socket, "rooms:admin-lobby", %{}, opts)
+    wait_for_channel(channel)
+
     Channel.push_async(channel, "boom", %{})
 
     assert_receive %Message{event: "phx_error"}
 
-    :timer.sleep(10)
-    refute Process.alive?(channel)
-    assert {:ok, _, channel} = Channel.join(socket, "rooms:admin-lobby")
+    assert Process.alive?(channel)
+
+    assert_receive %Message{event: "you:left"}
+    wait_for_channel(channel)
+    assert Channel.joined?(channel)
   end
 
   test "use async with genserver" do
@@ -338,8 +389,10 @@ defmodule PhoenixClientTest do
     config = Keyword.put(@socket_config, :headers, [{"x-extra", "value"}])
     {:ok, socket} = Socket.start_link(config)
     wait_for_socket(socket)
-    {:ok, headers, _channel} = Channel.join(socket, "rooms:headers")
-    assert %{"x-extra" => "value"} = headers
+    {:ok, channel} = Channel.join(socket, "rooms:headers")
+    wait_for_channel(channel)
+    assert_receive %Message{payload: %{"response" => %{"x-extra" => "value"}}}
+    # assert %{"x-extra" => "value"} = headers
   end
 
   defp assert_message(pid, message, counter \\ 0)
@@ -359,6 +412,12 @@ defmodule PhoenixClientTest do
   def wait_for_socket(socket) do
     unless Socket.connected?(socket) do
       wait_for_socket(socket)
+    end
+  end
+
+  def wait_for_channel(channel) do
+    unless Channel.joined?(channel) do
+      wait_for_channel(channel)
     end
   end
 
