@@ -145,7 +145,7 @@ defmodule MyApp.Worker do
   # start_link ...
 
   def init(_opts) do
-    {:ok, channel} = Channel.join(Socket, "room:lobby")
+    {:ok, _response, channel} = Channel.join(Socket, "room:lobby")
     {:ok, %{
       channel: channel
     }}
