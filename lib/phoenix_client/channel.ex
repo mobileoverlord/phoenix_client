@@ -132,6 +132,7 @@ defmodule PhoenixClient.Channel do
   def init({socket, topic, params, opts}) do
     case Socket.channel_join(socket, self(), topic) do
       :ok ->
+        Process.link(socket)
         Process.flag(:trap_exit, true)
 
         first_join = Keyword.get(opts, :first_join_ms, @first_join_ms)

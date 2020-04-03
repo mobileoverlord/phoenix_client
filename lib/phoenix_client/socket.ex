@@ -127,7 +127,6 @@ defmodule PhoenixClient.Socket do
       ) do
     case Map.get(channels, topic) do
       nil ->
-        Process.link(channel_pid)
         monitor_ref = Process.monitor(channel_pid)
         channels = Map.put(channels, topic, {channel_pid, monitor_ref})
         {:reply, :ok, %{state | channels: channels}}
