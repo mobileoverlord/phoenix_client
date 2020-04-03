@@ -132,6 +132,8 @@ defmodule PhoenixClient.Channel do
   def init({socket, topic, params, opts}) do
     case Socket.channel_join(socket, self(), topic) do
       :ok ->
+        Process.flag(:trap_exit, true)
+
         first_join = Keyword.get(opts, :first_join_ms, @first_join_ms)
         Process.send_after(self(), :join, first_join)
 
@@ -251,6 +253,15 @@ defmodule PhoenixClient.Channel do
   def handle_info(%Message{} = message, state) do
     send_message(message, state)
     {:noreply, state}
+  end
+
+  @impl true
+  def handle_info({:EXIT, pid, reason}, state) do
+    cond do
+      pid == state.socket -> {:stop, reason, state}
+      pid == state.caller -> {:stop, reason, state}
+      true -> {:noreply, state}
+    end
   end
 
   defp set_parent(channel_pid) do
