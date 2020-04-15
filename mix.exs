@@ -40,8 +40,8 @@ defmodule PhoenixClient.Mixfile do
 
   defp package do
     [
-      licenses: ["Apache 2.0"],
-      links: %{"Github" => "https://github.com/mobileoverlord/phoenix_client"}
+      licenses: ["Apache-2.0"],
+      links: %{"GitHub" => "https://github.com/mobileoverlord/phoenix_client"}
     ]
   end
 end
