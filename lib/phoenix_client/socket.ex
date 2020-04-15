@@ -51,9 +51,6 @@ defmodule PhoenixClient.Socket do
   ## Callbacks
   @impl true
   def init(opts) do
-    :crypto.start()
-    :ssl.start()
-
     transport = opts[:transport] || @default_transport
 
     json_library = Keyword.get(opts, :json_library, Jason)
