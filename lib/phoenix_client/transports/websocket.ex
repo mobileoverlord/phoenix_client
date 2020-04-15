@@ -43,6 +43,12 @@ defmodule PhoenixClient.Transports.Websocket do
     {:ok, state}
   end
 
+  def websocket_handle({:pong, _msg}, _conn_state, state) do
+    # Ignore pong responses when :websocket_client is configured to send
+    # keepalive messages.
+    {:ok, state}
+  end
+
   def websocket_handle(other_msg, _req, state) do
     Logger.warn(fn -> "Unknown message #{inspect(other_msg)}" end)
     {:ok, state}
