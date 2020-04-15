@@ -330,6 +330,14 @@ defmodule PhoenixClientTest do
     assert %{"x-extra" => "value"} = headers
   end
 
+  test "headers can be dynamically generated" do
+    config = Keyword.put(@socket_config, :headers, fn -> [{"x-extra", "value"}] end)
+    {:ok, socket} = Socket.start_link(config)
+    wait_for_socket(socket)
+    {:ok, headers, _channel} = Channel.join(socket, "rooms:headers")
+    assert %{"x-extra" => "value"} = headers
+  end
+
   defp assert_message(pid, message, counter \\ 0)
   defp assert_message(_pid, _message, 10), do: false
 
