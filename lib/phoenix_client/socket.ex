@@ -86,6 +86,7 @@ defmodule PhoenixClient.Socket do
       Keyword.get(opts, :transport_opts, [])
       |> Keyword.put(:sender, self())
       |> Keyword.put(:extra_headers, Keyword.get(opts, :headers))
+      |> Keyword.put(:keepalive, heartbeat_interval)
 
     send(self(), :connect)
 
@@ -97,7 +98,6 @@ defmodule PhoenixClient.Socket do
        params: params,
        channels: %{},
        reconnect: reconnect?,
-       heartbeat_interval: heartbeat_interval,
        reconnect_interval: reconnect_interval,
        reconnect_timer: nil,
        status: :disconnected,
@@ -157,28 +157,11 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
-    :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
     {:noreply, %{state | status: :connected}}
   end
 
   def handle_info({:disconnected, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
     {:noreply, close(reason, state)}
-  end
-
-  @impl true
-  def handle_info(:heartbeat, %{status: :connected} = state) do
-    ref = state.ref + 1
-
-    %Message{topic: "phoenix", event: "heartbeat", ref: ref}
-    |> transport_send(state)
-
-    :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
-    {:noreply, %{state | ref: ref}}
-  end
-
-  @impl true
-  def handle_info(:heartbeat, state) do
-    {:noreply, state}
   end
 
   # New Messages from the transport_pid come in here
