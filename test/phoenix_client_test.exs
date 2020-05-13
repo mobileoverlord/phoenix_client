@@ -297,6 +297,17 @@ defmodule PhoenixClientTest do
     refute Socket.connected?(socket)
   end
 
+  test "socket reports back on connect if requested" do
+    config =
+      @socket_config
+      |> Keyword.put(:report_events, true)
+      |> Keyword.put(:reconnect_interval, 100)
+
+    {:ok, socket} = Socket.start_link(config)
+    wait_for_socket(socket)
+    assert_received {:phoenix_client, :connected}
+  end
+
   test "rejoin", context do
     endpoint = context[:endpoint]
     {:ok, socket} = Socket.start_link(@socket_config)

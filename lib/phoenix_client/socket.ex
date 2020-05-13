@@ -21,7 +21,15 @@ defmodule PhoenixClient.Socket do
   end
 
   def start_link(opts, genserver_opts \\ []) do
+    opts = Keyword.put(opts, :report_events_pid, report_events_pid(opts))
+
     GenServer.start_link(__MODULE__, opts, genserver_opts)
+  end
+
+  defp report_events_pid(opts) do
+    if opts[:report_events] do
+      self()
+    end
   end
 
   def stop(pid) do
@@ -81,6 +89,7 @@ defmodule PhoenixClient.Socket do
     opts = Keyword.put_new(opts, :headers, [])
     heartbeat_interval = opts[:heartbeat_interval] || @heartbeat_interval
     reconnect_interval = opts[:reconnect_interval] || @reconnect_interval
+    report_events_pid = opts[:report_events_pid]
 
     transport_opts =
       Keyword.get(opts, :transport_opts, [])
@@ -91,6 +100,7 @@ defmodule PhoenixClient.Socket do
 
     {:ok,
      %{
+       report_events_pid: report_events_pid,
        opts: opts,
        url: url,
        json_library: json_library,
@@ -158,10 +168,19 @@ defmodule PhoenixClient.Socket do
   @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
     :erlang.send_after(state.heartbeat_interval, self(), :heartbeat)
+
+    if state.report_events_pid do
+      send(state.report_events_pid, {:phoenix_client, :connected})
+    end
+
     {:noreply, %{state | status: :connected}}
   end
 
   def handle_info({:disconnected, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
+    if state.report_events_pid do
+      send(state.report_events_pid, {:phoenix_client, :disconnected})
+    end
+
     {:noreply, close(reason, state)}
   end
 
