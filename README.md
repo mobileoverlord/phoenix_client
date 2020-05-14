@@ -4,15 +4,13 @@ Channel client for connecting to Phoenix from Elixir
 
 ## Installation
 
-Add `phoenix_client`, a transport, and a json library as dependencies in your
-`mix.exs` file. Currently, the only included transport is `websocket_client`.
+Add `phoenix_client` and a json library as dependencies in your `mix.exs` file.
 `jason` is specified as the default json library.
 
 ```elixir
 def deps do
   [
     {:phoenix_client, "~> 0.3"},
-    {:websocket_client, "~> 1.3"},
     {:jason, "~> 1.0"}
   ]
 end
