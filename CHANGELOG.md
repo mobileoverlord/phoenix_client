@@ -1,5 +1,14 @@
 # PhoenixClient
 
+## v0.11.0
+
+* Enhancements
+  * `websocket_client` is no longer an optional dependency.
+  * Delegate heartbeat to the transport instead of using the `phx_heartbeat`
+    message. This results in a much smaller payload for keeping the connection
+    alive.
+  * Add `:ssl` to extra_applications so it is included and started with OTP.
+
 ## v0.10.0
 
 * Enhancements
