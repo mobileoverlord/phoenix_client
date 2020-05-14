@@ -7,8 +7,8 @@ defmodule PhoenixClient.ChannelSupervisor do
     DynamicSupervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  def start_channel(socket, topic, params) do
-    spec = Channel.child_spec({socket, topic, params})
+  def start_channel(socket, topic, params, opts) do
+    spec = Channel.child_spec({socket, topic, params, opts})
     DynamicSupervisor.start_child(__MODULE__, spec)
   end
 

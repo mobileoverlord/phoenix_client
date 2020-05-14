@@ -39,8 +39,8 @@ defmodule PhoenixClient.Socket do
   end
 
   @doc false
-  def channel_join(pid, channel, topic, params) do
-    GenServer.call(pid, {:channel_join, channel, topic, params})
+  def channel_join(pid, channel, topic) do
+    GenServer.call(pid, {:channel_join, channel, topic})
   end
 
   @doc false
@@ -118,17 +118,15 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_call(
-        {:channel_join, channel_pid, topic, params},
+        {:channel_join, channel_pid, topic},
         _from,
         %{channels: channels} = state
       ) do
     case Map.get(channels, topic) do
       nil ->
         monitor_ref = Process.monitor(channel_pid)
-        message = Message.join(topic, params)
-        {push, state} = push_message(message, state)
         channels = Map.put(channels, topic, {channel_pid, monitor_ref})
-        {:reply, {:ok, push}, %{state | channels: channels}}
+        {:reply, :ok, %{state | channels: channels}}
 
       {pid, _topic} ->
         {:reply, {:error, {:already_joined, pid}}, state}
@@ -143,10 +141,8 @@ defmodule PhoenixClient.Socket do
 
       {_channel_pid, monitor_ref} ->
         Process.demonitor(monitor_ref)
-        message = Message.leave(topic)
-        {push, state} = push_message(message, state)
         channels = Map.drop(channels, [topic])
-        {:reply, {:ok, push}, %{state | channels: channels}}
+        {:reply, :ok, %{state | channels: channels}}
     end
   end
 
@@ -255,7 +251,7 @@ defmodule PhoenixClient.Socket do
   end
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
-    state = %{state | status: :disconnected, channels: %{}}
+    state = %{state | status: :disconnected}
 
     message = %Message{event: close_event(reason), payload: %{reason: reason}}
 

@@ -1,5 +1,20 @@
 # PhoenixClient
 
+## Unreleased
+
+* Breaking changes
+  * Channel join is asynchronous, now it returns `{:ok, channel} | {:error, term}`
+  * Channel join doesn't have timeout anymore, now it receives an optional keyword list with options for controlling the backoff retries
+  * `Socket.channel_join/4` doesn't take the parameters anymore and now is `Socket.channel_join/3` now doesn't send the join message, now the Channel is responsible for that, so it doesn't need the params.
+  * `Socket.channel_join/3` and `Socket.channel_leave/3` returns `:ok` instead of `{:ok, push}`
+
+* Enhancements
+  * Channels reconnect on error with exponential backoff, with options for backoff timeouts
+  * Added `Channel.joined?/1`
+
+* Bug fixes
+  * When leaving the channel returns `:stop` on the `:leave` callback to stop the process, there were some channel processes leaks
+
 ## v0.10.0
 
 * Enhancements
