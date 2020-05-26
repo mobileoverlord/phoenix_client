@@ -105,7 +105,7 @@ defmodule PhoenixClient.Socket do
        transport: transport,
        transport_opts: transport_opts,
        transport_pid: nil,
-       queue: :queue.new(),
+       to_send_r: [],
        ref: 0
      }}
   end
@@ -173,18 +173,11 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info(:flush, %{status: :connected} = state) do
-    state =
-      case :queue.out(state.queue) do
-        {:empty, _queue} ->
-          state
+    state.to_send_r
+    |> Enum.reverse()
+    |> Enum.each(&transport_send(&1, state))
 
-        {{:value, message}, queue} ->
-          transport_send(message, state)
-          :erlang.send_after(100, self(), :flush)
-          %{state | queue: queue}
-      end
-
-    {:noreply, state}
+    {:noreply, %{state | to_send_r: []}}
   end
 
   @impl true
@@ -278,7 +271,7 @@ defmodule PhoenixClient.Socket do
     ref = state.ref + 1
     push = %{message | ref: to_string(ref)}
     send(self(), :flush)
-    state = %{state | ref: ref, queue: :queue.in(push, state.queue)}
+    state = %{state | ref: ref, to_send_r: [push | state.to_send_r]}
     {push, state}
   end
 end
