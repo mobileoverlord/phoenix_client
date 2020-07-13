@@ -1,5 +1,10 @@
 # PhoenixClient
 
+## v0.11.1
+
+* Enhancements
+  * Remove delay when sending messages through the socket.
+
 ## v0.11.0
 
 * Enhancements
