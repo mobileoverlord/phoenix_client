@@ -41,6 +41,8 @@ socket_opts = [
 
 The socket will automatically attempt to connect when it starts. If the socket
 becomes disconnected, it will attempt to reconnect automatically.
+Please note that `start_link` is not synchronous so you must wait for the
+socket to become connected before attempting to join a channel.
 
 You can control how frequently the socket will attempt to reconnect by setting
 `reconnect_interval` in the socket_opts.
