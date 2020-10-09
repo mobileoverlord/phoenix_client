@@ -10,7 +10,7 @@ Add `phoenix_client` and a json library as dependencies in your `mix.exs` file.
 ```elixir
 def deps do
   [
-    {:phoenix_client, "~> 0.3"},
+    {:phoenix_client, "~> 0.11"},
     {:jason, "~> 1.0"}
   ]
 end
