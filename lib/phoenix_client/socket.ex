@@ -226,6 +226,11 @@ defmodule PhoenixClient.Socket do
     end
   end
 
+  @impl true
+  def terminate(reason, state) do
+    transport_terminate(reason, state)
+  end
+
   defp transport_receive(message, %{
          channels: channels,
          serializer: serializer,
@@ -246,6 +251,13 @@ defmodule PhoenixClient.Socket do
        }) do
     send(pid, {:send, Message.encode!(serializer, message, json_library)})
   end
+
+  defp transport_terminate(reason, %{transport_pid: transport_pid})
+       when not is_nil(transport_pid) do
+    GenServer.stop(transport_pid, reason)
+  end
+
+  defp transport_terminate(_reason, _state), do: :ok
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
     state = %{state | status: :disconnected, channels: %{}}
