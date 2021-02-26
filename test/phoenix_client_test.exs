@@ -297,6 +297,21 @@ defmodule PhoenixClientTest do
     refute Socket.connected?(socket)
   end
 
+  test "stop transport when socket terminate" do
+    {:ok, socket} = Socket.start_link(@socket_config)
+    wait_for_socket(socket)
+
+    %{transport_pid: transport_pid} = :sys.get_state(socket)
+
+    refute is_nil(transport_pid)
+    assert Process.alive?(transport_pid)
+
+    :ok = Socket.stop(socket)
+
+    refute Process.alive?(socket)
+    refute Process.alive?(transport_pid)
+  end
+
   test "rejoin", context do
     endpoint = context[:endpoint]
     {:ok, socket} = Socket.start_link(@socket_config)
