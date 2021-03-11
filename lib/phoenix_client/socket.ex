@@ -38,6 +38,10 @@ defmodule PhoenixClient.Socket do
     GenServer.call(pid, {:push, message})
   end
 
+  def listen(pid, topic, send_to) do
+    GenServer.call(pid, {:channel_listen, topic, send_to})
+  end
+
   @doc false
   def channel_join(pid, channel, topic, params) do
     GenServer.call(pid, {:channel_join, channel, topic, params})
@@ -133,6 +137,10 @@ defmodule PhoenixClient.Socket do
       {pid, _topic} ->
         {:reply, {:error, {:already_joined, pid}}, state}
     end
+  end
+
+  def handle_call({:channel_listen, topic, to}, _from, %{channels: channels} = state) do
+    {:reply, :ok, %{state | channels: Map.put(channels, topic, {to, :ignore})}}
   end
 
   @impl true
